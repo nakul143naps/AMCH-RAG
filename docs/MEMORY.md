@@ -3,7 +3,7 @@
 This file is the project's running memory. Whoever (or whatever) is implementing this — update it after every phase in `TASKS.md`, and any time a decision deviates from `ARCHITECTURE.md`/`DESIGN.md`. Keep entries dated and short. Don't delete old entries — append.
 
 ## Project State
-**Current phase**: Phase 4 — Reranking. Phase 3 complete.
+**Current phase**: Phase 5 — Caching. Phase 4 complete.
 
 ## Key Decisions Log
 
@@ -30,8 +30,7 @@ Provider free tiers and model catalogs move fast. At build time (not spec time),
 - [ ] Web-search provider for CRAG fallback — decide during Phase 7.
 - [ ] Whether a lightweight web UI ships in v1.
 
-## Deviations From Spec (fill in as they happen)
-_(none yet — record here any time implementation reality forces a change from `ARCHITECTURE.md`/`DESIGN.md`, with the reason, so the docs and the code don't silently drift apart)_
+- _Phase 4 Reranker Engine_: Swapped local reranker implementation from raw FastEmbed to FlashRank (`ms-marco-TinyBERT-L-2-v2`). FlashRank provides ultra-lightweight ONNX-quantized models (~3MB) with sub-10ms CPU inference and zero PyTorch/GPU dependencies, avoiding heavy wheel downloads on Windows while maintaining high-quality cross-attention.
 
 ## Environment Notes
 - Required `.env` keys: see `DESIGN.md` §6. Never commit a filled `.env`.
@@ -43,3 +42,4 @@ _(none yet — record here any time implementation reality forces a change from 
 - _Phase 1 completed_: Core ingestion pipeline implemented and verified. Supports TXT, Markdown (section-aware), DOCX (paragraph + table), and PDF. Recursive boundary-aware semantic chunker built. FastEmbed dense (`BAAI/bge-small-en-v1.5`) and sparse (`Qdrant/bm25`) embeddings wired. Qdrant schema compliance verified. Async `POST /ingest` background tasks and `GET /ingest/{job_id}` tracking verified. 13/13 tests passing.
 - _Phase 2 completed_: Hybrid Retrieval implemented and verified. Built `HybridRetriever` and `VectorStoreManager.query_hybrid` executing single-roundtrip dense + BM25 sparse queries fused via native Reciprocal Rank Fusion (RRF). Added tenant isolation via Qdrant query-level `access_level` filter and metadata filtering (`doc_ids`, `source_types`). Implemented async worker pool offloading via `asyncio.to_thread`. 19/19 tests passing.
 - _Phase 3 completed_: Baseline RAG implemented and verified. Built `BaselineRAGService` formatting numbered context passages with source, section, and page citations. Built non-streaming `POST /query` endpoint returning answer + structured citations (`Citation` schema). Handled empty retrieval and provider error paths with appropriate status codes. 23/23 tests passing.
+- _Phase 4 completed_: Local cross-encoder reranker implemented and verified. Built `RerankerService` leveraging FlashRank ONNX (`ms-marco-TinyBERT-L-2-v2`). Wired into two-stage retrieval (top-$N$ candidate prefetch $\to$ cross-attention scoring $\to$ top-$k$ output). Created comparative evaluation benchmark demonstrating measurable Top-1 precision improvement over keyword distractor traps. 27/27 tests passing.

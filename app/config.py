@@ -58,8 +58,8 @@ class Settings(BaseSettings):
     )
     EMBEDDING_DIM: int = 384
     RERANKER_MODEL: str = Field(
-        default="BAAI/bge-reranker-base",
-        description="Local cross-encoder reranker model",
+        default="ms-marco-TinyBERT-L-2-v2",
+        description="Local cross-encoder reranker model (FlashRank ONNX)",
     )
 
     # Vector Store (Dual mode: Embedded local disk or Qdrant Server / Docker)

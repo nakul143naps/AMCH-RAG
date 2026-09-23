@@ -69,6 +69,7 @@ class BaselineRAGService:
             limit=request.limit,
             mode=request.mode,
             access_levels=request.access_level,
+            rerank=request.rerank,
         )
 
         # 2. Check for empty retrieval

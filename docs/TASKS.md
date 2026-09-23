@@ -30,8 +30,8 @@ Work phases in order — each phase produces something runnable/testable before 
 - **Done when**: you can ask a question about ingested docs and get a cited answer. This is the baseline everything after this phase must beat in eval score.
 
 ## Phase 4 — Reranking
-- [ ] Local cross-encoder reranker wired into the retrieval path (rerank top-N before top-k selection).
-- [ ] Eval: compare answer relevancy/context precision with vs. without reranking on a small test set.
+- [x] Local cross-encoder reranker wired into the retrieval path (rerank top-N before top-k selection).
+- [x] Eval: compare answer relevancy/context precision with vs. without reranking on a small test set.
 - **Done when**: reranking measurably improves top-k precision on the test set.
 
 ## Phase 5 — Caching

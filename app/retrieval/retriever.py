@@ -13,6 +13,7 @@ from qdrant_client.models import (
 
 from app.retrieval.embeddings import EmbeddingEngine, SparseVectorData
 from app.retrieval.models import RetrievalQuery, RetrievedChunk
+from app.retrieval.reranker import RerankerService
 from app.retrieval.vector_store import VectorStoreManager
 
 
@@ -23,10 +24,12 @@ class HybridRetriever:
         self,
         vector_mgr: VectorStoreManager | None = None,
         embedding_engine: EmbeddingEngine | None = None,
+        reranker: RerankerService | None = None,
     ) -> None:
-        """Initialize retriever with vector store and embedding engine singletons."""
+        """Initialize retriever with vector store, embedding engine, and reranker."""
         self.vector_mgr = vector_mgr or VectorStoreManager.get_instance()
         self.embedding_engine = embedding_engine or EmbeddingEngine.get_instance()
+        self.reranker = reranker or RerankerService.get_instance()
 
     def _build_filter(
         self,
@@ -126,8 +129,9 @@ class HybridRetriever:
         filter_criteria: dict[str, Any] | None = None,
         prefetch_limit: int | None = None,
         score_threshold: float | None = None,
+        rerank: bool | None = None,
     ) -> list[RetrievedChunk]:
-        """Execute synchronous hybrid/dense/sparse retrieval.
+        """Execute synchronous hybrid/dense/sparse retrieval with optional cross-encoder reranking.
 
         Args:
             query: Query text string or structured RetrievalQuery object.
@@ -139,9 +143,10 @@ class HybridRetriever:
             filter_criteria: Additional arbitrary payload field match filters.
             prefetch_limit: Number of candidates fetched per vector branch before RRF.
             score_threshold: Minimum score cutoff for returned points.
+            rerank: Whether to apply local cross-encoder reranking on top candidates (default True).
 
         Returns:
-            List of RetrievedChunk instances ordered by relevance/RRF score.
+            List of RetrievedChunk instances ordered by relevance/RRF or reranked score.
         """
         # Normalize input parameters
         if isinstance(query, RetrievalQuery):
@@ -163,6 +168,7 @@ class HybridRetriever:
                 if score_threshold is not None
                 else query.score_threshold
             )
+            q_rerank = rerank if rerank is not None else query.rerank
         else:
             q_text = query
             q_limit = limit or 10
@@ -172,6 +178,7 @@ class HybridRetriever:
             q_source_types = source_types
             q_prefetch = prefetch_limit or 40
             q_threshold = score_threshold
+            q_rerank = rerank if rerank is not None else False
 
         query_filter = self._build_filter(
             access_levels=q_access,
@@ -189,11 +196,13 @@ class HybridRetriever:
         if q_mode in ("hybrid", "sparse"):
             sparse_vec = self.embedding_engine.embed_query_sparse(q_text)
 
-        # Execute query via VectorStoreManager
+        # Stage 1: Fast candidate retrieval (fetch top-N if reranking, else top-k)
+        fetch_limit = max(q_limit * 2, 20) if q_rerank else q_limit
+
         points: list[ScoredPoint] = self.vector_mgr.query_hybrid(
             dense_vector=dense_vec,
             sparse_vector=sparse_vec,
-            limit=q_limit,
+            limit=fetch_limit,
             prefetch_limit=q_prefetch,
             query_filter=query_filter,
         )
@@ -249,6 +258,14 @@ class HybridRetriever:
                 )
             )
 
+        # Stage 2: High-precision cross-encoder reranking
+        if q_rerank and retrieved:
+            retrieved = self.reranker.rerank(
+                query=q_text, chunks=retrieved, top_k=q_limit
+            )
+        else:
+            retrieved = retrieved[:q_limit]
+
         return retrieved
 
     async def async_retrieve(
@@ -262,6 +279,7 @@ class HybridRetriever:
         filter_criteria: dict[str, Any] | None = None,
         prefetch_limit: int | None = None,
         score_threshold: float | None = None,
+        rerank: bool | None = None,
     ) -> list[RetrievedChunk]:
         """Asynchronous wrapper offloading CPU/blocking IO to worker pool per Rule §3."""
         return await asyncio.to_thread(
@@ -275,4 +293,5 @@ class HybridRetriever:
             filter_criteria=filter_criteria,
             prefetch_limit=prefetch_limit,
             score_threshold=score_threshold,
+            rerank=rerank,
         )

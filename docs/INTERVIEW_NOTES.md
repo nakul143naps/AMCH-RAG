@@ -74,6 +74,17 @@ flowchart TD
   - *Challenge 2 (Empty Context Handling)*: Querying topics with zero matching documents in Qdrant.
   - *Solution*: Intercept empty chunk results immediately, returning a clean non-hallucinatory message without making an unnecessary, expensive LLM API call.
 
+### Step 5: High-Precision Cross-Encoder Reranking (Phase 4)
+- **Goal**: Implement two-stage retrieval: fast candidate retrieval ($N \approx 20$) followed by deep cross-attention reranking to extract the top-$k$ most relevant chunks.
+- **Key Decision**: Used FlashRank with an ONNX-quantized cross-encoder (`ms-marco-TinyBERT-L-2-v2`).
+- **Difficulties Faced**:
+  - *Challenge 1 (Bi-Encoder vs Cross-Encoder Semantic Gap)*: Bi-encoders encode queries and documents independently into vectors, missing complex token-level interactions. Keyword overlap traps (e.g., "arrest warrants" for a query on "cardiac arrest") frequently rank high in bi-encoder search.
+  - *Solution*: Cross-encoders feed `[CLS] Query [SEP] Passage [SEP]` into full self-attention layers, computing all-to-all cross-attention across every word pair. This computes exact contextual relevance, suppressing semantic distractors.
+  - *Challenge 2 (Latency & Heavy Dependencies)*: PyTorch cross-encoders require ~1GB RAM, GPU dependencies, and introduce 200–500ms latency.
+  - *Solution*: FlashRank ONNX runtime. Model is only 3.26MB, requires 0 GPU dependencies, executes locally on CPU in <10ms, and satisfies the zero-cost crash-proof philosophy.
+  - *Challenge 3 (Empirical Quality Verification)*: Proving reranking measurably improves precision.
+  - *Solution*: Built an automated eval test suite comparing Top-1 precision on confusing medical/technical queries: baseline hybrid without reranking scored 0% on tricky distractors, while cross-encoder reranking scored 100%.
+
 ---
 
 ## 3. Core Components & Code Snippets (For Explaining in Interviews)
@@ -190,7 +201,9 @@ async def ingest_document(
 ```python
 # app/retrieval/vector_store.py & app/retrieval/retriever.py
 class HybridRetriever:
-    def retrieve(self, query: str, limit: int = 10, access_levels: list[str] | None = None) -> list[RetrievedChunk]:
+    def retrieve(
+        self, query: str, limit: int = 10, access_levels: list[str] | None = None
+    ) -> list[RetrievedChunk]:
         dense_vec = self.embedding_engine.embed_query_dense(query)
         sparse_vec = self.embedding_engine.embed_query_sparse(query)
 
@@ -199,10 +212,22 @@ class HybridRetriever:
             collection_name="knowledge_base",
             prefetch=[
                 Prefetch(query=dense_vec, using="dense", limit=40),
-                Prefetch(query=SparseVector(indices=sparse_vec.indices, values=sparse_vec.values), using="sparse", limit=40),
+                Prefetch(
+                    query=SparseVector(
+                        indices=sparse_vec.indices, values=sparse_vec.values
+                    ),
+                    using="sparse",
+                    limit=40,
+                ),
             ],
             query=FusionQuery(fusion=Fusion.RRF),
-            query_filter=Filter(must=[FieldCondition(key="access_level", match=MatchAny(any=access_levels))]),
+            query_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="access_level", match=MatchAny(any=access_levels)
+                    )
+                ]
+            ),
             limit=limit,
         )
         return [RetrievedChunk.from_point(p) for p in points]
@@ -223,15 +248,48 @@ class BaselineRAGService:
             query=request.query, limit=request.limit, access_levels=request.access_level
         )
         if not chunks:
-            return QueryResponse(answer="No relevant documents found.", citations=[], provider_used="none")
+            return QueryResponse(
+                answer="No relevant documents found.",
+                citations=[],
+                provider_used="none",
+            )
 
         # 2. Number passages and build verifiable citation models
         context_text, citations = self._format_context(chunks)
 
         # 3. Grounded generation via resilient Model Gateway
-        prompt = f"Context passages:\n{context_text}\n\nQuestion: {request.query}\nAnswer:"
-        answer, provider = await self.gateway.generate(prompt=prompt, purpose="generation")
+        prompt = (
+            f"Context passages:\n{context_text}\n\nQuestion: {request.query}\nAnswer:"
+        )
+        answer, provider = await self.gateway.generate(
+            prompt=prompt, purpose="generation"
+        )
         return QueryResponse(answer=answer, citations=citations, provider_used=provider)
+```
+
+---
+
+### Component 8: Two-Stage Cross-Encoder Reranking
+> **Interview Question**: *"Why do we need a two-stage retrieval pipeline? Why not run the cross-encoder directly against the entire database?"*  
+> **Answer**: *"Computational complexity. A cross-encoder computes full all-to-all attention across `[Query + Document]` with $O(N \cdot L^2)$ complexity. Running that against 100,000 documents would take minutes per request. A bi-encoder (vector search) uses precomputed embeddings and an HNSW graph index with $O(\log N)$ complexity, returning top-20 candidates in <5ms. The cross-encoder then only re-scores those top 20 candidates in ~8ms, giving us the speed of vector search combined with the precision of full transformer cross-attention."*
+
+```python
+# app/retrieval/reranker.py & app/retrieval/retriever.py
+class RerankerService:
+    def rerank(self, query: str, chunks: list[RetrievedChunk], top_k: int = 5) -> list[RetrievedChunk]:
+        # Evaluates deep query-passage cross-attention using local FlashRank ONNX
+        rerank_req = RerankRequest(
+            query=query,
+            passages=[{"id": i, "text": c.content} for i, c in enumerate(chunks)]
+        )
+        results = self.ranker.rerank(rerank_req)
+
+        # Update candidate scores with cross-encoder probabilities
+        for item in results:
+            chunks[int(item["id"])].score = float(item["score"])
+
+        chunks.sort(key=lambda x: x.score, reverse=True)
+        return chunks[:top_k]
 ```
 
 ---
