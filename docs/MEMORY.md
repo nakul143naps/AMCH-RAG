@@ -3,7 +3,7 @@
 This file is the project's running memory. Whoever (or whatever) is implementing this — update it after every phase in `TASKS.md`, and any time a decision deviates from `ARCHITECTURE.md`/`DESIGN.md`. Keep entries dated and short. Don't delete old entries — append.
 
 ## Project State
-**Current phase**: Phase 6 — Agentic Orchestration (LangGraph). Phase 5 complete.
+**Current phase**: Phase 7 — Corrective RAG (CRAG). Phase 6 complete.
 
 ## Key Decisions Log
 
@@ -44,3 +44,4 @@ Provider free tiers and model catalogs move fast. At build time (not spec time),
 - _Phase 3 completed_: Baseline RAG implemented and verified. Built `BaselineRAGService` formatting numbered context passages with source, section, and page citations. Built non-streaming `POST /query` endpoint returning answer + structured citations (`Citation` schema). Handled empty retrieval and provider error paths with appropriate status codes. 23/23 tests passing.
 - _Phase 4 completed_: Local cross-encoder reranker implemented and verified. Built `RerankerService` leveraging FlashRank ONNX (`ms-marco-TinyBERT-L-2-v2`). Wired into two-stage retrieval (top-$N$ candidate prefetch $\to$ cross-attention scoring $\to$ top-$k$ output). Created comparative evaluation benchmark demonstrating measurable Top-1 precision improvement over keyword distractor traps. 27/27 tests passing.
 - _Phase 5 completed_: Two-Tier Caching implemented and verified. Built `TwoTierCacheService` combining Tier 1 Exact normalized query hash (<5ms) and Tier 2 Semantic vector cache in Qdrant ($\ge 0.90$ cosine similarity) with reverse document invalidation hooks and multi-tenant isolation. Integrated into `BaselineRAGService`. 34/34 tests passing.
+- _Phase 6 completed_: Agentic Orchestration with LangGraph implemented and verified. Created `AgentState` schema per `DESIGN.md` §3, `RouterNode` with fast-path greeting heuristic + LLM classification with graceful fallback, `CacheLookupNode`, `RetrieveNode`, `RerankNode`, and `GenerateNode`. Assembled compiled `StateGraph` with conditional branches allowing greetings and cached queries to bypass retrieval completely while routing factual queries through hybrid search, reranking, and generation with verifiable citations. High-level `AgentService` built. Full test suite passing 45/45 tests in ~15s with zero ruff lint errors.

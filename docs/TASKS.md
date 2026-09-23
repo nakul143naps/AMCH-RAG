@@ -41,10 +41,10 @@ Work phases in order — each phase produces something runnable/testable before 
 - **Done when**: an identical query is served from cache in < 300ms, and a paraphrased-but-equivalent query also hits cache above the threshold.
 
 ## Phase 6 — Agentic Orchestration (LangGraph)
-- [ ] `AgentState` per `DESIGN.md` §3.
-- [ ] Router node (cache / memory / retrieve / tool_call).
-- [ ] Wire Phases 2–5 into graph nodes instead of a linear chain.
-- **Done when**: a greeting or already-cached question skips retrieval entirely (verified via trace), and a knowledge-base question still retrieves correctly.
+- [x] `AgentState` per `DESIGN.md` §3.
+- [x] Router node (cache / memory / retrieve / tool_call).
+- [x] Wire Phases 2–5 into graph nodes instead of a linear chain.
+- **Done when**: a greeting or already-cached question skips retrieval entirely (verified via trace), and a knowledge-base question still retrieves correctly. (Verified in tests: greetings and cached queries bypass retrieval, knowledge-base questions retrieve, rerank, and synthesize with citations).
 
 ## Phase 7 — Corrective RAG (CRAG)
 - [ ] Grader node (per-chunk relevance grading).

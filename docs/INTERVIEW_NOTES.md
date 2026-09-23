@@ -97,6 +97,16 @@ flowchart TD
   - *Solution*: Reverse document index (`doc_id -> [cache_keys]`). When a document is re-ingested or deleted, all linked exact cache entries and Qdrant semantic cache points are evicted atomically.
   - *Challenge 3 (Multi-Tenant Cache Leakage)*: An admin asks a confidential question, caching an answer containing privileged information. A public user asks the same question.
   - *Solution*: Bound tenant `access_level` directly into the exact cache key hash and into Qdrant's filter metadata. Public users can NEVER hit an entry cached under a confidential access level.
+### Step 7: LangGraph Agentic Orchestration & Dynamic Routing (Phase 6)
+- **Goal**: Transition from a rigid linear pipeline into a stateful, cyclical, branching LangGraph workflow capable of bypassing retrieval on greetings or cached queries, and dynamically routing complex queries.
+- **Key Decision**: Defined typed `AgentState` schema per `DESIGN.md` §3; built modular nodes (`router`, `cache_lookup`, `retrieve`, `rerank`, `generate`) connected via conditional edges in a compiled `StateGraph`.
+- **Difficulties Faced**:
+  - *Challenge 1 (Greeting Latency & Token Waste)*: When a user submits pleasantries ("Hello", "Good morning", "Thank you"), executing hybrid vector retrieval and cross-encoder reranking wastes 1–2 seconds and runs futile semantic searches against the knowledge base.
+  - *Solution*: Implemented a fast-path conversational heuristic in `RouterNode`. Common chit-chat patterns immediately route to `"cache"`, allowing `CacheLookupNode` to output an immediate friendly response in <5ms with 0 vector searches and 0 LLM tokens.
+  - *Challenge 2 (LangGraph State Immutability & Safe Transitions)*: In LangGraph, nodes receive the full `AgentState` and return state updates. Inconsistent field types or missing citations create runtime failures downstream.
+  - *Solution*: Created a strict `AgentState` (TypedDict) and a factory `create_initial_state()`. Each node updates only its owned slice of state (e.g. `{"retrieved_docs": chunks}` or `{"route": "retrieve"}`), preserving end-to-end trace IDs and metadata.
+  - *Challenge 3 (Dead-End & Infinite Loop Prevention)*: Dynamic graph branches must never land on dead ends or loop unboundedly.
+  - *Solution*: Built deterministic conditional edge evaluators (`route_decision`, `cache_decision`) with bounded fallbacks to `"retrieve"` and terminal exit to `END` on cache hit, guaranteeing deterministic termination.
 
 ---
 
@@ -335,6 +345,46 @@ class TwoTierCacheService:
             return self.cache_mgr.get(linked_key), "semantic"
 
         return None, None
+```
+
+---
+
+### Component 10: LangGraph Agentic Workflow & Conditional Routing
+> **Interview Question**: *"Why did you use LangGraph instead of a linear LangChain LCEL chain or LlamaIndex query engine?"*  
+> **Answer**: *"A linear chain forces every query through every step: `retrieve -> rerank -> generate`. In production, this causes massive token and latency waste: greetings trigger document retrieval, and repeat questions re-run vector search.  
+> LangGraph models RAG as a stateful, cyclical directed graph (`StateGraph(AgentState)`). It enables:  
+> 1. Dynamic Routing: A fast-path heuristic and LLM router that branches to `cache_lookup` for greetings/hits, or `retrieve` for factual queries.  
+> 2. Conditional Edge Termination: Cache hits short-circuit straight to `END` in <5ms.  
+> 3. Cyclical Iteration: The exact foundation required for Corrective RAG (CRAG) retry loops and Self-RAG groundedness regeneration."*
+
+```python
+# app/agent/graph.py
+workflow = StateGraph(AgentState)
+
+# Nodes
+workflow.add_node("router", router_node)
+workflow.add_node("cache_lookup", cache_node)
+workflow.add_node("retrieve", retrieve_node)
+workflow.add_node("rerank", rerank_node)
+workflow.add_node("generate", generate_node)
+
+# Edges & Conditional Branches
+workflow.add_edge(START, "router")
+workflow.add_conditional_edges(
+    "router",
+    lambda state: "cache_lookup" if state.get("route") == "cache" else "retrieve",
+    {"cache_lookup": "cache_lookup", "retrieve": "retrieve"}
+)
+workflow.add_conditional_edges(
+    "cache_lookup",
+    lambda state: END if state.get("cache_hit") else "retrieve",
+    {END: END, "retrieve": "retrieve"}
+)
+workflow.add_edge("retrieve", "rerank")
+workflow.add_edge("rerank", "generate")
+workflow.add_edge("generate", END)
+
+app_graph = workflow.compile()
 ```
 
 ---
