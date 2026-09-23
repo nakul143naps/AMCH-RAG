@@ -85,6 +85,19 @@ flowchart TD
   - *Challenge 3 (Empirical Quality Verification)*: Proving reranking measurably improves precision.
   - *Solution*: Built an automated eval test suite comparing Top-1 precision on confusing medical/technical queries: baseline hybrid without reranking scored 0% on tricky distractors, while cross-encoder reranking scored 100%.
 
+### Step 6: Two-Tier Exact + Semantic Caching (Phase 5)
+- **Goal**: Serve repetitive and paraphrased queries in sub-50ms without invoking retrieval or billable LLMs.
+- **Key Decision**: Built a Two-Tier Cache Architecture:
+  - **Tier 1 (Exact)**: Normalized SHA-256 hash lookup in Redis/SQLite (<5ms).
+  - **Tier 2 (Semantic)**: Cosine vector similarity search in a secondary Qdrant collection (`semantic_cache`) with $\ge 0.90$ threshold.
+- **Difficulties Faced**:
+  - *Challenge 1 (Query Variations & False Misses)*: A user asks `"What is AMCH-RAG?"`, and another asks `"what is amch-rag?  "` or `"What is the AMCH-RAG system?"`. Exact string hashing misses trivial variations.
+  - *Solution*: Pre-normalization (lowercasing, whitespace collapsing, terminal punctuation stripping) handles syntax variations in Tier 1. Dense vector embedding with ANN search handles semantic phrasing variations in Tier 2.
+  - *Challenge 2 (Cache Invalidation & Stale Answers)*: If a document is updated or deleted, cached answers citing that document become stale or false.
+  - *Solution*: Reverse document index (`doc_id -> [cache_keys]`). When a document is re-ingested or deleted, all linked exact cache entries and Qdrant semantic cache points are evicted atomically.
+  - *Challenge 3 (Multi-Tenant Cache Leakage)*: An admin asks a confidential question, caching an answer containing privileged information. A public user asks the same question.
+  - *Solution*: Bound tenant `access_level` directly into the exact cache key hash and into Qdrant's filter metadata. Public users can NEVER hit an entry cached under a confidential access level.
+
 ---
 
 ## 3. Core Components & Code Snippets (For Explaining in Interviews)
@@ -290,6 +303,38 @@ class RerankerService:
 
         chunks.sort(key=lambda x: x.score, reverse=True)
         return chunks[:top_k]
+```
+
+---
+
+### Component 9: Two-Tier Cache Architecture (Exact + Semantic)
+> **Interview Question**: *"How does your semantic cache work and how do you prevent stale or unauthorized answers from being returned?"*  
+> **Answer**: *"We use a two-tier approach:  
+> 1. Tier 1 (Exact): Hashes pre-normalized queries (stripped whitespace/casing/punctuation) to SHA-256 with tenant access level. Yields sub-5ms response time.  
+> 2. Tier 2 (Semantic): If Tier 1 misses, embeds the query and searches a secondary Qdrant collection `semantic_cache`. If cosine similarity $\ge 0.90$ within the same access level, fetches the linked answer in <50ms.  
+> To prevent stale answers, we maintain a reverse index `doc_id -> [cache_keys]`. Whenever a document is re-ingested or deleted, all linked cache entries and Qdrant semantic vectors are evicted atomically."*
+
+```python
+# app/cache/service.py
+class TwoTierCacheService:
+    def lookup(self, query: str, access_level: str = "default") -> tuple[dict | None, str | None]:
+        # Tier 1: Exact Hash Lookup (<5ms)
+        exact_key = compute_exact_cache_key(query, access_level)
+        entry = self.cache_mgr.get(exact_key)
+        if entry:
+            return entry, "exact"
+
+        # Tier 2: Semantic Vector Match (<50ms)
+        query_vec = self.embedding_engine.embed_query_dense(query)
+        results = self.vector_mgr.client.query_points(
+            collection_name="semantic_cache", query=query_vec, limit=1,
+            query_filter=Filter(must=[FieldCondition(key="access_level", match=MatchValue(value=access_level))])
+        )
+        if results.points and results.points[0].score >= 0.90:
+            linked_key = results.points[0].payload.get("exact_key")
+            return self.cache_mgr.get(linked_key), "semantic"
+
+        return None, None
 ```
 
 ---

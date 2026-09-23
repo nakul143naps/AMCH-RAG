@@ -35,9 +35,9 @@ Work phases in order — each phase produces something runnable/testable before 
 - **Done when**: reranking measurably improves top-k precision on the test set.
 
 ## Phase 5 — Caching
-- [ ] Exact cache (Redis) on normalized query.
-- [ ] Semantic cache (embed + ANN match against recent Q&A) with configurable threshold.
-- [ ] Cache invalidation on document re-ingest/delete.
+- [x] Exact cache (Redis) on normalized query.
+- [x] Semantic cache (embed + ANN match against recent Q&A) with configurable threshold.
+- [x] Cache invalidation on document re-ingest/delete.
 - **Done when**: an identical query is served from cache in < 300ms, and a paraphrased-but-equivalent query also hits cache above the threshold.
 
 ## Phase 6 — Agentic Orchestration (LangGraph)

@@ -10,11 +10,9 @@ from app.retrieval.models import (
 )
 from app.retrieval.reranker import RerankerService
 from app.retrieval.retriever import HybridRetriever
-from app.retrieval.service import BaselineRAGService
 from app.retrieval.vector_store import VectorStoreManager
 
 __all__ = [
-    "BaselineRAGService",
     "Citation",
     "EmbeddingEngine",
     "HybridRetriever",

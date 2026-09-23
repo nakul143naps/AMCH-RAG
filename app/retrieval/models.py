@@ -102,6 +102,9 @@ class QueryRequest(BaseModel):
     rerank: bool = Field(
         default=True, description="Whether to apply cross-encoder reranking"
     )
+    skip_cache: bool = Field(
+        default=False, description="Whether to bypass cache lookup"
+    )
 
 
 class QueryResponse(BaseModel):

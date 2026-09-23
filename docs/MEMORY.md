@@ -3,7 +3,7 @@
 This file is the project's running memory. Whoever (or whatever) is implementing this — update it after every phase in `TASKS.md`, and any time a decision deviates from `ARCHITECTURE.md`/`DESIGN.md`. Keep entries dated and short. Don't delete old entries — append.
 
 ## Project State
-**Current phase**: Phase 5 — Caching. Phase 4 complete.
+**Current phase**: Phase 6 — Agentic Orchestration (LangGraph). Phase 5 complete.
 
 ## Key Decisions Log
 
@@ -43,3 +43,4 @@ Provider free tiers and model catalogs move fast. At build time (not spec time),
 - _Phase 2 completed_: Hybrid Retrieval implemented and verified. Built `HybridRetriever` and `VectorStoreManager.query_hybrid` executing single-roundtrip dense + BM25 sparse queries fused via native Reciprocal Rank Fusion (RRF). Added tenant isolation via Qdrant query-level `access_level` filter and metadata filtering (`doc_ids`, `source_types`). Implemented async worker pool offloading via `asyncio.to_thread`. 19/19 tests passing.
 - _Phase 3 completed_: Baseline RAG implemented and verified. Built `BaselineRAGService` formatting numbered context passages with source, section, and page citations. Built non-streaming `POST /query` endpoint returning answer + structured citations (`Citation` schema). Handled empty retrieval and provider error paths with appropriate status codes. 23/23 tests passing.
 - _Phase 4 completed_: Local cross-encoder reranker implemented and verified. Built `RerankerService` leveraging FlashRank ONNX (`ms-marco-TinyBERT-L-2-v2`). Wired into two-stage retrieval (top-$N$ candidate prefetch $\to$ cross-attention scoring $\to$ top-$k$ output). Created comparative evaluation benchmark demonstrating measurable Top-1 precision improvement over keyword distractor traps. 27/27 tests passing.
+- _Phase 5 completed_: Two-Tier Caching implemented and verified. Built `TwoTierCacheService` combining Tier 1 Exact normalized query hash (<5ms) and Tier 2 Semantic vector cache in Qdrant ($\ge 0.90$ cosine similarity) with reverse document invalidation hooks and multi-tenant isolation. Integrated into `BaselineRAGService`. 34/34 tests passing.
