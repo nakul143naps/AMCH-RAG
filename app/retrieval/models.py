@@ -61,3 +61,37 @@ class RetrievalQuery(BaseModel):
     score_threshold: float | None = Field(
         default=None, description="Minimum score cutoff"
     )
+
+
+class Citation(BaseModel):
+    """Citation reference pointing to an exact source document and chunk."""
+
+    index: int = Field(..., description="1-indexed citation number used in prompt [n]")
+    source: str = Field(..., description="Source filename or origin")
+    doc_id: str = Field(..., description="Stable ID of the source document")
+    chunk_id: str = Field(..., description="Unique ID of the chunk point")
+    section: str | None = Field(default=None, description="Section heading if available")
+    page: int | None = Field(default=None, description="Page number if available")
+    snippet: str = Field(..., description="Brief snippet of the supporting context")
+
+
+class QueryRequest(BaseModel):
+    """Request payload for POST /query endpoint."""
+
+    query: str = Field(..., min_length=1, description="User question or query")
+    session_id: str | None = Field(default=None, description="Client session identifier")
+    access_level: str = Field(default="default", description="User access level for tenant filtering")
+    limit: int = Field(default=5, ge=1, le=50, description="Maximum number of context chunks to retrieve")
+    mode: Literal["hybrid", "dense", "sparse"] = Field(
+        default="hybrid", description="Retrieval strategy"
+    )
+
+
+class QueryResponse(BaseModel):
+    """Structured response payload for POST /query endpoint."""
+
+    answer: str = Field(..., description="Synthesized grounded answer")
+    citations: list[Citation] = Field(default_factory=list, description="Verifiable source citations")
+    provider_used: str = Field(..., description="LLM provider that generated the response")
+    trace_id: str = Field(..., description="Trace identifier for request observability")
+

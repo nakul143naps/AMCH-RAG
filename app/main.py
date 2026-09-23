@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes_health import router as health_router
 from app.api.routes_ingest import router as ingest_router
+from app.api.routes_query import router as query_router
 from app.config import get_settings
 from app.retrieval.vector_store import VectorStoreManager
 
@@ -15,7 +16,6 @@ from app.retrieval.vector_store import VectorStoreManager
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifespan context manager for startup and shutdown procedures."""
-    settings = get_settings()
     # Initialize and ensure Qdrant collections exist
     vector_mgr = VectorStoreManager.get_instance()
     try:
@@ -46,6 +46,7 @@ app.add_middleware(
 # Include Routers
 app.include_router(health_router)
 app.include_router(ingest_router)
+app.include_router(query_router)
 
 
 @app.get("/")

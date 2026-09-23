@@ -25,8 +25,8 @@ Work phases in order — each phase produces something runnable/testable before 
 - **Done when**: a query returns fused dense+sparse results with correct filtering, verified against a small hand-built test corpus.
 
 ## Phase 3 — Baseline RAG (no agent yet)
-- [ ] Simple retrieve → generate chain through the model gateway (Phase 11 can be stubbed with Gemini-only for now).
-- [ ] Minimal `POST /query` (non-streaming) returning an answer + citations.
+- [x] Simple retrieve → generate chain through the model gateway (Phase 11 can be stubbed with Gemini-only for now).
+- [x] Minimal `POST /query` (non-streaming) returning an answer + citations.
 - **Done when**: you can ask a question about ingested docs and get a cited answer. This is the baseline everything after this phase must beat in eval score.
 
 ## Phase 4 — Reranking

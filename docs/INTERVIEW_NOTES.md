@@ -63,6 +63,17 @@ flowchart TD
   - *Challenge 3 (FastAPI Event Loop Non-Blocking)*: Embedding computation and Qdrant local disk I/O are CPU/sync-bound.
   - *Solution*: Wrapped synchronous retrieval in `asyncio.to_thread` via `retriever.async_retrieve()` so the async web server remains non-blocking and fully responsive.
 
+### Step 4: Baseline RAG & Grounded Citations (Phase 3)
+- **Goal**: Build a deterministic retrieve $\to$ generate pipeline serving `POST /query` with answer generation and structured verifiable citations.
+- **Key Decision**:
+  - Context passages are explicitly indexed with metadata headers (`[1] (Source: doc.pdf, Section: Overview, Page: 2)`).
+  - The model is instructed to cite each factual assertion with `[n]`, and strictly decline to answer if the context lacks information.
+- **Difficulties Faced**:
+  - *Challenge 1 (Hallucinated Citations & Document Drift)*: LLMs often invent citations or mix up page numbers if asked to free-form format sources.
+  - *Solution*: Decoupled citation generation. Context chunks are numbered before LLM generation. When the answer cites `[1]`, the system returns a structured `Citation` model carrying the exact `doc_id`, `chunk_id`, section, and text snippet verified from the vector database.
+  - *Challenge 2 (Empty Context Handling)*: Querying topics with zero matching documents in Qdrant.
+  - *Solution*: Intercept empty chunk results immediately, returning a clean non-hallucinatory message without making an unnecessary, expensive LLM API call.
+
 ---
 
 ## 3. Core Components & Code Snippets (For Explaining in Interviews)
@@ -195,6 +206,32 @@ class HybridRetriever:
             limit=limit,
         )
         return [RetrievedChunk.from_point(p) for p in points]
+```
+
+---
+
+### Component 7: Grounded Synthesis with Verifiable Citations
+> **Interview Question**: *"How do you guarantee that citations in the generated answer actually point to real source passages instead of hallucinated titles?"*  
+> **Answer**: *"We decoupled citation metadata from LLM output. Before feeding retrieved chunks to the model, we number each chunk sequentially `[1]`, `[2]` with document and section headers. The LLM is constrained to cite using `[n]` tags only. Our service parses these references into strongly-typed `Citation` objects backed by the immutable `doc_id` and Qdrant `chunk_id`, guaranteeing 100% verifiable source lineage."*
+
+```python
+# app/retrieval/service.py
+class BaselineRAGService:
+    async def answer(self, request: QueryRequest) -> QueryResponse:
+        # 1. Retrieve hybrid chunks
+        chunks = await self.retriever.async_retrieve(
+            query=request.query, limit=request.limit, access_levels=request.access_level
+        )
+        if not chunks:
+            return QueryResponse(answer="No relevant documents found.", citations=[], provider_used="none")
+
+        # 2. Number passages and build verifiable citation models
+        context_text, citations = self._format_context(chunks)
+
+        # 3. Grounded generation via resilient Model Gateway
+        prompt = f"Context passages:\n{context_text}\n\nQuestion: {request.query}\nAnswer:"
+        answer, provider = await self.gateway.generate(prompt=prompt, purpose="generation")
+        return QueryResponse(answer=answer, citations=citations, provider_used=provider)
 ```
 
 ---

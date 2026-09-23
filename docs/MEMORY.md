@@ -3,7 +3,7 @@
 This file is the project's running memory. Whoever (or whatever) is implementing this — update it after every phase in `TASKS.md`, and any time a decision deviates from `ARCHITECTURE.md`/`DESIGN.md`. Keep entries dated and short. Don't delete old entries — append.
 
 ## Project State
-**Current phase**: Phase 3 — Baseline RAG (no agent yet). Phase 2 complete.
+**Current phase**: Phase 4 — Reranking. Phase 3 complete.
 
 ## Key Decisions Log
 
@@ -42,3 +42,4 @@ _(none yet — record here any time implementation reality forces a change from 
 - _Phase 0 completed_: Environment initialized with `uv` (Python 3.12). Core structure created. Pydantic Settings, local Qdrant embedded/remote manager, multi-backend cache with SQLite fallback, Gemini primary LLM client with Groq/OpenRouter resilience, and health check route created and verified.
 - _Phase 1 completed_: Core ingestion pipeline implemented and verified. Supports TXT, Markdown (section-aware), DOCX (paragraph + table), and PDF. Recursive boundary-aware semantic chunker built. FastEmbed dense (`BAAI/bge-small-en-v1.5`) and sparse (`Qdrant/bm25`) embeddings wired. Qdrant schema compliance verified. Async `POST /ingest` background tasks and `GET /ingest/{job_id}` tracking verified. 13/13 tests passing.
 - _Phase 2 completed_: Hybrid Retrieval implemented and verified. Built `HybridRetriever` and `VectorStoreManager.query_hybrid` executing single-roundtrip dense + BM25 sparse queries fused via native Reciprocal Rank Fusion (RRF). Added tenant isolation via Qdrant query-level `access_level` filter and metadata filtering (`doc_ids`, `source_types`). Implemented async worker pool offloading via `asyncio.to_thread`. 19/19 tests passing.
+- _Phase 3 completed_: Baseline RAG implemented and verified. Built `BaselineRAGService` formatting numbered context passages with source, section, and page citations. Built non-streaming `POST /query` endpoint returning answer + structured citations (`Citation` schema). Handled empty retrieval and provider error paths with appropriate status codes. 23/23 tests passing.
