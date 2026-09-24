@@ -93,6 +93,8 @@ class InputGuardrails:
         # 2. PII Redaction
         redacted_query, pii_flags = cls.redact_pii(query)
         flags.extend(pii_flags)
+        if pii_flags:
+            flags.append("pii_redacted")
 
         return GuardrailCheckResult(
             is_safe=True,
@@ -100,6 +102,8 @@ class InputGuardrails:
             flags=flags,
             violation_message=None,
         )
+
+    scan_and_sanitize = evaluate_query
 
     @classmethod
     def sanitize_retrieved_chunk(cls, chunk: RetrievedChunk) -> tuple[RetrievedChunk, list[str]]:

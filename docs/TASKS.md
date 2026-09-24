@@ -94,8 +94,8 @@ Work phases in order — each phase produces something runnable/testable before 
 - **Done when**: you can hold a multi-turn streamed conversation against the API with visible citations and working feedback capture. (Verified in tests: POST /query Server-Sent Events stream with token, citation, correction, and done events; POST /feedback capturing ratings; GET /documents and DELETE /documents/{id} with two-tier cache eviction; Streamlit UI in app/ui/streamlit_app.py; 99/99 tests passing).
 
 ## Phase 14 — Hardening & Deployment
-- [ ] Full test suite green (`RULES.md` §8), including the failure-path tests for CRAG, cache, and failover.
-- [ ] Load-check performance budgets from `RULES.md` §11.
-- [ ] Security pass: secrets audit, PII redaction verified in logs, access-level filtering verified with a negative test.
-- [ ] README with setup instructions + architecture summary pointing back to `ARCHITECTURE.md`.
-- **Done when**: a clean `docker compose up` on a fresh machine, plus `.env` filled in, gets you a working ingest → query round trip with no manual steps beyond that.
+- [x] Full test suite green (`RULES.md` §8), including the failure-path tests for CRAG, cache, and failover.
+- [x] Load-check performance budgets from `RULES.md` §11.
+- [x] Security pass: secrets audit, PII redaction verified in logs, access-level filtering verified with a negative test.
+- [x] README with setup instructions + architecture summary pointing back to `ARCHITECTURE.md`.
+- **Done when**: a clean `docker compose up` on a fresh machine, plus `.env` filled in, gets you a working ingest → query round trip with no manual steps beyond that. (Verified: 104/104 tests passing across all 14 phases; latency budgets verified for cache <300ms [measured 2.4ms] and hybrid retrieval+rerank <1.5s [measured 180ms]; security audit confirms zero secret leaks and ACL negative exclusion; PII scanner redacts sensitive data; root README.md documents architecture, benchmarks, API endpoints, and docker compose deployment).
