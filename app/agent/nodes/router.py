@@ -9,24 +9,16 @@ from app.gateway.client import ModelGateway
 
 logger = logging.getLogger(__name__)
 
-ROUTER_SYSTEM_INSTRUCTION = """You are an intelligent routing agent for an enterprise knowledge assistant.
-Analyze the user query and decide if document retrieval is actually necessary:
+ROUTER_SYSTEM_INSTRUCTION = """You are an intelligent Self-RAG routing agent deciding whether document retrieval is actually necessary.
+Analyze the user query and decide the optimal execution route:
 
-- "cache": Choose this for:
-  1. Any greeting, salutation, or chit-chat (e.g. "hi", "hii", "hello", "hey", "how are you", "good morning").
-  2. Casual pleasantries or acknowledgments (e.g. "thanks", "ok", "cool", "great").
-  3. Assistant identity or capability inquiries (e.g. "who are you", "what can you do", "help").
-  4. Queries near-identical to a previously answered question.
-  DO NOT retrieve documents for greetings or casual conversation.
-
-- "memory": Questions answerable purely from known conversation history or user profile facts without document search.
-
-- "retrieve": Questions requiring factual knowledge retrieval from internal enterprise documents.
-
-- "tool_call": Queries requiring live external web search or calculations.
+- "direct": General knowledge questions, concepts, definitions, explanations, math, programming, or advice that do NOT require looking up internal enterprise documents (e.g. "what are transformers", "what is machine learning", "explain photosynthesis", "write python code for fibonacci"). The LLM can answer these directly from its pre-trained knowledge without slow retrieval loops.
+- "retrieve": Questions specifically asking for information from uploaded files, internal company documents, proprietary policies, financial reports, or when the user mentions files/documents (e.g. "what does the uploaded PDF say", "according to our Q3 financial report", "what is the vacation policy in chapter 2").
+- "cache": Any greeting, salutation, or chit-chat (e.g. "hi", "hello", "hey", "how are you", "who are you").
+- "memory": Questions answerable purely from known user profile facts or previous conversation history.
 
 Respond with your decision in the exact format:
-ROUTE: <cache|memory|retrieve|tool_call>
+ROUTE: <direct|retrieve|cache|memory>
 REASON: <one sentence justification>"""
 
 GREETING_PATTERNS = [
@@ -109,11 +101,13 @@ class RouterNode:
         """Extract route decision from LLM text response."""
         lower = text.lower()
         # Look for explicit format first: ROUTE: <route>
-        match = re.search(r"route\s*:\s*(cache|memory|retrieve|tool_call)", lower)
+        match = re.search(r"route\s*:\s*(direct|cache|memory|retrieve|tool_call)", lower)
         if match:
             return match.group(1)  # type: ignore[return-value]
 
         # Keyword scan
+        if "direct" in lower or "no_retrieval" in lower:
+            return "direct"
         if "cache" in lower:
             return "cache"
         if "memory" in lower:

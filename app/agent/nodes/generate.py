@@ -22,6 +22,10 @@ Clearly state that this information is sourced from external web search.
 Cite each factual claim with [n] matching the corresponding numbered web passage.
 Do not invent information or extrapolate beyond the provided web sources."""
 
+DIRECT_SYSTEM_INSTRUCTION = """You are a knowledgeable, helpful, and concise AI assistant.
+Answer the user's question clearly, comprehensively, and accurately using your pre-trained general knowledge.
+Provide a natural, well-structured answer without needing document citations."""
+
 
 class GenerateNode:
     """Synthesizes answers grounded in retrieved passages with verifiable citations."""
@@ -83,6 +87,44 @@ class GenerateNode:
 
         # Zero-token guard for empty retrieval
         if not chunks:
+            # Self-RAG: Direct generation path for general queries that need no retrieval
+            if state.get("route") == "direct":
+                logger.info(
+                    f"GenerateNode generating direct answer without retrieval for: '{query}'"
+                )
+                prompt_parts = []
+                memory_context = state.get("memory_context")
+                if memory_context:
+                    prompt_parts.append(f"User & Conversation Memory:\n{memory_context.strip()}")
+                prompt_parts.append(f"Question: {query}\n\nAnswer:")
+                prompt = "\n\n".join(prompt_parts)
+
+                answer_text, provider_used = await self.gateway.generate(
+                    prompt=prompt,
+                    purpose="generation",
+                    system_instruction=DIRECT_SYSTEM_INSTRUCTION,
+                )
+                clean_answer = answer_text.strip()
+
+                try:
+                    await self.cache_service.async_store(
+                        query=query,
+                        access_level=access_level,
+                        answer=clean_answer,
+                        citations=[],
+                        doc_ids=[],
+                        trace_id=trace_id,
+                    )
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(f"Failed to store direct response in cache: {e}")
+
+                return {
+                    "draft_answer": clean_answer,
+                    "final_answer": clean_answer,
+                    "citations": [],
+                    "provider_used": provider_used,
+                }
+
             logger.info(
                 "GenerateNode received 0 chunks -> returning zero-context fallback"
             )

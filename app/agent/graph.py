@@ -51,6 +51,17 @@ def cache_decision(state: AgentState) -> Literal["__end__", "memory"]:
     return "memory"
 
 
+def memory_decision(state: AgentState) -> Literal["retrieve", "generate"]:
+    """Self-RAG Adaptive Retrieval: check whether retrieval is necessary or answer directly."""
+    route = state.get("route")
+    if route == "direct":
+        logger.info(
+            f"Self-RAG: Adaptive decision determined NO retrieval needed for: '{state.get('query')}' -> direct generation"
+        )
+        return "generate"
+    return "retrieve"
+
+
 def crag_decision(state: AgentState) -> Literal["generate", "rewrite", "web_search"]:
     """
     CRAG decision logic evaluating retrieval sufficiency and correction bounds:
@@ -99,9 +110,14 @@ def groundedness_decision(state: AgentState) -> Literal["output_guardrails", "ge
     settings = get_settings()
     max_retries = settings.MAX_GROUNDEDNESS_RETRIES
 
-    # Fast-path for fallback or greeting answers
+    # Fast-path for fallback, greeting, or direct answers (no chunks to ground against)
     draft = state.get("draft_answer", "") or ""
-    if not draft or draft.startswith(("I could not find", "I cannot process", "Hello!", "Hi there")):
+    if (
+        not draft
+        or not state.get("retrieved_docs")
+        or state.get("route") == "direct"
+        or draft.startswith(("I could not find", "I cannot process", "Hello!", "Hi there"))
+    ):
         return "output_guardrails"
 
     if score is not None and score >= 0.70:
@@ -196,8 +212,15 @@ def build_agent_graph(
         },
     )
 
-    # Memory node loads user facts and history summary, then proceeds to retrieve
-    workflow.add_edge("memory", "retrieve")
+    # Self-RAG Adaptive Edge: memory loads user facts, then decides whether to retrieve or generate directly
+    workflow.add_conditional_edges(
+        "memory",
+        memory_decision,
+        {
+            "retrieve": "retrieve",
+            "generate": "generate",
+        },
+    )
 
     workflow.add_edge("retrieve", "rerank")
     workflow.add_edge("rerank", "grade")

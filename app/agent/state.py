@@ -7,7 +7,7 @@ from langchain_core.messages import BaseMessage
 
 from app.retrieval.models import Citation, RetrievedChunk
 
-RouteType = Literal["cache", "memory", "retrieve", "tool_call"]
+RouteType = Literal["cache", "memory", "retrieve", "tool_call", "direct"]
 GradeType = Literal["relevant", "ambiguous", "irrelevant"]
 
 
