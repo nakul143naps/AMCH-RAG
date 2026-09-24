@@ -11,10 +11,15 @@ from app.retrieval.models import Citation
 logger = logging.getLogger(__name__)
 
 GREETING_PATTERNS = [
-    r"^(hi|hello|hey|howdy|greetings)\b",
-    r"^good (morning|afternoon|evening|day)\b",
-    r"^(thank you|thanks|thx)\b",
-    r"^who are you\b",
+    r"^h+i+\b",
+    r"^h+e+y+\b",
+    r"^h+e+l+l+o+\b",
+    r"^(howdy|greetings|hiya|hola|namaste|aloha)\b",
+    r"^(yo|sup|wassup|what'?s\s+up)\b",
+    r"^good\s+(morning|afternoon|evening|night|day)\b",
+    r"^(thank\s*you|thanks|thx|cheers|ty)\b",
+    r"^(who\s+are\s+you|what\s+are\s+you|what\s+can\s+you\s+do|help(\s+me)?)\b",
+    r"^how\s+(are\s+you|are\s+things|is\s+it\s+going|do\s+you\s+do)\b",
 ]
 
 
@@ -41,9 +46,17 @@ class CacheLookupNode:
         # 1. Immediate conversational greeting response
         if self._is_greeting(query):
             logger.info(f"Cache node matched greeting '{query}' -> instant answer")
+            normalized_q = query.strip().lower()
+            if "how are you" in normalized_q:
+                greeting_reply = "Hello! I'm doing great, thank you for asking! How can I assist you with your research or documents today?"
+            elif any(w in normalized_q for w in ["who are you", "what can you do", "help"]):
+                greeting_reply = "Hello! I am your AMCH-RAG assistant. You can upload documents in the sidebar to ask questions about them, or ask me any general question!"
+            else:
+                greeting_reply = "Hello! How can I assist you today?"
+
             return {
                 "cache_hit": True,
-                "final_answer": "Hello! I am your AI assistant. How can I assist you today?",
+                "final_answer": greeting_reply,
                 "citations": [],
                 "provider_used": "cache:greeting",
             }

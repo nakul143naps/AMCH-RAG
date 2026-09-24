@@ -10,21 +10,35 @@ from app.gateway.client import ModelGateway
 logger = logging.getLogger(__name__)
 
 ROUTER_SYSTEM_INSTRUCTION = """You are an intelligent routing agent for an enterprise knowledge assistant.
-Given a user query and optional chat history, determine the best execution route:
-- "cache": greeting, polite chit-chat (e.g. "hi", "thanks"), or near-identical to a previously answered question.
-- "memory": questions answerable purely from known conversation history or user profile facts without document search.
-- "retrieve": questions requiring factual knowledge retrieval from internal enterprise documents.
-- "tool_call": queries requiring external web search, live real-time information, or calculations.
+Analyze the user query and decide if document retrieval is actually necessary:
+
+- "cache": Choose this for:
+  1. Any greeting, salutation, or chit-chat (e.g. "hi", "hii", "hello", "hey", "how are you", "good morning").
+  2. Casual pleasantries or acknowledgments (e.g. "thanks", "ok", "cool", "great").
+  3. Assistant identity or capability inquiries (e.g. "who are you", "what can you do", "help").
+  4. Queries near-identical to a previously answered question.
+  DO NOT retrieve documents for greetings or casual conversation.
+
+- "memory": Questions answerable purely from known conversation history or user profile facts without document search.
+
+- "retrieve": Questions requiring factual knowledge retrieval from internal enterprise documents.
+
+- "tool_call": Queries requiring live external web search or calculations.
 
 Respond with your decision in the exact format:
 ROUTE: <cache|memory|retrieve|tool_call>
 REASON: <one sentence justification>"""
 
 GREETING_PATTERNS = [
-    r"^(hi|hello|hey|howdy|greetings)\b",
-    r"^good (morning|afternoon|evening|day)\b",
-    r"^(thank you|thanks|thx)\b",
-    r"^who are you\b",
+    r"^h+i+\b",
+    r"^h+e+y+\b",
+    r"^h+e+l+l+o+\b",
+    r"^(howdy|greetings|hiya|hola|namaste|aloha)\b",
+    r"^(yo|sup|wassup|what'?s\s+up)\b",
+    r"^good\s+(morning|afternoon|evening|night|day)\b",
+    r"^(thank\s*you|thanks|thx|cheers|ty)\b",
+    r"^(who\s+are\s+you|what\s+are\s+you|what\s+can\s+you\s+do|help(\s+me)?)\b",
+    r"^how\s+(are\s+you|are\s+things|is\s+it\s+going|do\s+you\s+do)\b",
 ]
 
 
