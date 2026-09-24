@@ -27,25 +27,25 @@ class Settings(BaseSettings):
         default="", description="Google AI Studio / Gemini API Key"
     )
     GEMINI_GENERATION_MODEL: str = Field(
-        default="gemini-2.5-flash",
+        default="gemini-3.6-flash",
         description="Fast multimodal model for generation, routing, grading, rewriting",
     )
     GEMINI_PRO_MODEL: str = Field(
-        default="gemini-2.5-pro",
+        default="gemini-3.6-flash",
         description="Deep reasoning model for high-stakes generation & self-check",
     )
 
     # Fallback Providers (100% Free Tiers)
     GROQ_API_KEY: str = Field(default="", description="Groq Cloud API Key (Free tier)")
     GROQ_MODEL: str = Field(
-        default="llama-3.3-70b-versatile", description="Groq generation model"
+        default="openai/gpt-oss-120b", description="Groq generation model"
     )
 
     OPENROUTER_API_KEY: str = Field(
         default="", description="OpenRouter API Key (Free tier)"
     )
     OPENROUTER_MODEL: str = Field(
-        default="deepseek/deepseek-r1:free",
+        default="openrouter/auto",
         description="OpenRouter free model endpoint",
     )
 
