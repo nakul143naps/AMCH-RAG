@@ -94,8 +94,11 @@ class Settings(BaseSettings):
     MAX_RETRIEVAL_RESULTS: int = 8
     RERANK_TOP_K: int = 4
 
-    # Web Search Fallback (Zero cost: DuckDuckGo search)
+    # Web Search Fallback (Tavily AI Search or zero-cost DuckDuckGo)
     ENABLE_WEB_SEARCH_FALLBACK: bool = True
+    TAVILY_API_KEY: str = Field(
+        default="", description="Tavily AI Search API Key for reliable web search"
+    )
 
     # Memory Settings (Short-term & Long-term)
     QDRANT_USER_MEMORY_COLLECTION: str = "user_memory"

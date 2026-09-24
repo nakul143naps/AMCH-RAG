@@ -19,9 +19,15 @@ class WebSearchNode:
     async def __call__(self, state: AgentState) -> dict[str, Any]:
         """Search the web for the query and format web passages into RetrievedChunks."""
         query = (state.get("rewritten_query") or state.get("query", "")).strip()
+        original_query = (state.get("query") or "").strip()
 
         logger.info(f"WebSearchNode initiating fallback web search for: '{query}'")
         raw_results = await self.tool.async_search(query=query, max_results=5)
+
+        # Fallback to original user query if rewritten keyword query returns empty
+        if not raw_results and original_query and original_query != query:
+            logger.info(f"WebSearchNode retrying with original query: '{original_query}'")
+            raw_results = await self.tool.async_search(query=original_query, max_results=5)
 
         web_chunks: list[RetrievedChunk] = []
         for idx, res in enumerate(raw_results, start=1):
