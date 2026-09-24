@@ -108,6 +108,9 @@ class QueryRequest(BaseModel):
     skip_cache: bool = Field(
         default=False, description="Whether to bypass cache lookup"
     )
+    stream: bool = Field(
+        default=False, description="Whether to stream response via Server-Sent Events (SSE)"
+    )
 
 
 class QueryResponse(BaseModel):

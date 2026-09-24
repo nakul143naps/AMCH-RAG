@@ -177,7 +177,18 @@ flowchart TD
   - *Challenge 1 (Circular Dependency Trap in Tracing)*: `ModelGateway` imports `wrap_traced_node` from `app.observability`, while `app.observability.tracer` needed `AgentState` from `app.agent.state`, which imported `ModelGateway` for generation nodes.
   - *Solution*: Decoupled node state typing in `tracer.py` using `Any` for runtime execution and isolated telemetry primitives from graph construction.
   - *Challenge 2 (Zero-Cost / Offline CI Resilience for Tracing)*: If OpenTelemetry or Langfuse exporters require live remote collectors, local tests or offline environments crash on startup.
-  - *Solution*: Graceful no-op mock fallback. If `OTEL_EXPORTER_OTLP_ENDPOINT` or `LANGFUSE_PUBLIC_KEY` are unset, tracers execute in-memory with zero network calls and 0ms overhead.
+### Step 14: Server-Sent Events (SSE) Streaming, Document Lifecycle & Feedback (Phase 13)
+- **Goal**: Deliver a polished, low-latency production API supporting token-by-token SSE streaming with interleaved citation and correction events, document lifecycle cataloging with atomic cache purging, feedback capture, and an interactive multi-turn test UI.
+- **Key Decision**:
+  - SSE Protocol (`POST /query`): Emits structured real-time events (`correction`, `citation`, `token`, `done`) over standard `text/event-stream`. Per `RULES.md` §6, output guardrails and groundedness checks run on the complete draft *before* token emission, guaranteeing that ungrounded hallucinations never stream to the user.
+  - Document Lifecycle & Atomic Invalidation: Added `GET /documents` to inspect the catalog and `DELETE /documents/{doc_id}` to purge document points from Qdrant while atomically evicting reverse-indexed exact cache keys and semantic vector cache entries.
+  - Feedback Loop (`POST /feedback`): Captures binary ratings (`up`/`down`) and comments linked to the request's immutable `trace_id`, incrementing Prometheus metric `rag_feedback_total`.
+  - Streamlit Chat UI (`app/ui/streamlit_app.py`): Full-featured interactive interface with real-time SSE token streaming, verified citation boxes, correction alerts, inline feedback submission, and document ingestion controls.
+- **Difficulties Faced**:
+  - *Challenge 1 (Streaming Guardrail Ordering Conflict)*: Streaming tokens raw from an LLM generator prevents groundedness scoring or citation verification from running first, leaking hallucinations.
+  - *Solution*: Buffering generator pattern. The graph synthesizes and executes Self-RAG groundedness validation and output guardrails in full. Once verified (or regenerated), the response is streamed via SSE with sub-second time-to-first-token.
+  - *Challenge 2 (Cache Consistency on Document Deletion)*: Deleting a document from vector search while leaving cached responses active causes the system to serve answers from deleted sources.
+  - *Solution*: Reverse document index hook. `DELETE /documents/{doc_id}` deletes vectors and purges all reverse-indexed exact cache keys and semantic vector points atomically.
 
 ---
 
@@ -643,6 +654,34 @@ def wrap_traced_node(node_name: str, node_callable: Any) -> Callable:
 @router.get("/metrics")
 async def get_metrics() -> Response:
     return Response(content=get_metrics_exposition(), media_type=CONTENT_TYPE_LATEST)
+```
+
+---
+
+### Component 17: Server-Sent Events (SSE) Streaming Protocol & Document Lifecycle
+> **Interview Question**: *"How do you stream agentic RAG responses while preserving guardrails and keeping two-tier caches in sync when documents are deleted?"*  
+> **Answer**: *"We address this with a buffered streaming architecture and reverse-index cache invalidation:  
+> 1. Guardrail-Safe SSE Streaming: Raw streaming from an LLM risks delivering ungrounded hallucinations to users before guardrails can catch them. In AMCH-RAG, the agent graph completes generation, Self-RAG groundedness validation, and output citation sanitization first. If groundedness fails, it regenerates internally. Once validated, it streams interleaved events over `text/event-stream`: (a) `correction` events if query rewrites or regenerations occurred, (b) structured `citation` events linking numbered sources, (c) `token` chunks for typewriter UX, and (d) a terminal `done` event with the request's `trace_id`.  
+> 2. Atomic Document Deletion & Reverse Cache Eviction: When `DELETE /documents/{id}` is called, `VectorStoreManager` removes all chunk points from Qdrant, and `TwoTierCacheService.invalidate_by_doc(id)` uses a reverse index to atomically purge all exact Redis/SQLite cache keys and semantic vector cache points that cited the deleted document, preventing stale or false answers."*
+
+```python
+# app/api/routes_query.py
+async def sse_event_stream(request: QueryRequest, trace_id: str, ...):
+    final_state = await agent_service.ainvoke(query=request.query, trace_id=trace_id)
+    if final_state.get("correction_attempts", 0) > 0:
+        yield f"data: {json.dumps({'type': 'correction', 'reason': 'Query rewritten'})}\n\n"
+    for c in final_state.get("citations", []):
+        yield f"data: {json.dumps({'type': 'citation', 'index': c.index, 'source': c.source})}\n\n"
+    for word in final_state.get("final_answer", "").split(" "):
+        yield f"data: {json.dumps({'type': 'token', 'content': word + ' '})}\n\n"
+    yield f"data: {json.dumps({'type': 'done', 'trace_id': trace_id})}\n\n"
+
+# app/api/routes_documents.py
+@router.delete("/{doc_id}")
+async def delete_document(doc_id: str):
+    vector_mgr.delete_by_doc_id(doc_id)
+    cache_service.invalidate_by_doc(doc_id)  # Evicts exact and semantic cache
+    return {"status": "deleted", "doc_id": doc_id, "cache_invalidated": True}
 ```
 
 ---

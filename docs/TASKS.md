@@ -87,11 +87,11 @@ Work phases in order — each phase produces something runnable/testable before 
 - **Done when**: a full request is traceable end-to-end in the tracing UI, and the eval script produces faithfulness/relevancy/precision/recall numbers you can compare across changes. (Verified in tests: OpenTelemetry tracer configured with node wrapper tracking all 12 graph nodes; Prometheus metrics registry and GET /metrics endpoint; LangfuseTracer generation logging; 25-item golden dataset in evals/golden_dataset.json; evals/evaluate.py benchmark script generating evals/report.json; 92/92 tests passing).
 
 ## Phase 13 — API Polish & Streaming
-- [ ] `POST /query` streaming (SSE) with interleaved token/citation/correction events per `DESIGN.md` §5.
-- [ ] `POST /feedback` linked to `trace_id`.
-- [ ] `GET /documents`, `DELETE /documents/{id}` with cache invalidation.
-- [ ] (Optional) minimal chat UI for manual testing.
-- **Done when**: you can hold a multi-turn streamed conversation against the API with visible citations and working feedback capture.
+- [x] `POST /query` streaming (SSE) with interleaved token/citation/correction events per `DESIGN.md` §5.
+- [x] `POST /feedback` linked to `trace_id`.
+- [x] `GET /documents`, `DELETE /documents/{id}` with cache invalidation.
+- [x] (Optional) minimal chat UI for manual testing.
+- **Done when**: you can hold a multi-turn streamed conversation against the API with visible citations and working feedback capture. (Verified in tests: POST /query Server-Sent Events stream with token, citation, correction, and done events; POST /feedback capturing ratings; GET /documents and DELETE /documents/{id} with two-tier cache eviction; Streamlit UI in app/ui/streamlit_app.py; 99/99 tests passing).
 
 ## Phase 14 — Hardening & Deployment
 - [ ] Full test suite green (`RULES.md` §8), including the failure-path tests for CRAG, cache, and failover.

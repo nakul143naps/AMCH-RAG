@@ -6,6 +6,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes_documents import router as documents_router
+from app.api.routes_feedback import router as feedback_router
 from app.api.routes_health import router as health_router
 from app.api.routes_ingest import router as ingest_router
 from app.api.routes_metrics import router as metrics_router
@@ -52,6 +54,8 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(ingest_router)
 app.include_router(query_router)
+app.include_router(documents_router)
+app.include_router(feedback_router)
 app.include_router(metrics_router)
 
 

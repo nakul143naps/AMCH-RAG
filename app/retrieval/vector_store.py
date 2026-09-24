@@ -2,7 +2,7 @@
 
 import os
 import uuid
-from typing import Optional
+from typing import Any, Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -275,3 +275,39 @@ class VectorStoreManager:
             return response.points
 
         return []
+
+    def list_documents(self, collection_name: str | None = None) -> list[dict[str, Any]]:
+        """List distinct ingested documents with metadata and chunk counts."""
+        settings = get_settings()
+        col = collection_name or settings.QDRANT_COLLECTION
+        try:
+            points, _ = self.client.scroll(
+                collection_name=col,
+                limit=1000,
+                with_payload=True,
+                with_vectors=False,
+            )
+        except Exception:  # noqa: BLE001
+            return []
+
+        docs_map: dict[str, dict[str, Any]] = {}
+        for pt in points:
+            if not pt.payload:
+                continue
+            doc_id = pt.payload.get("doc_id")
+            if not doc_id:
+                continue
+            if doc_id not in docs_map:
+                docs_map[doc_id] = {
+                    "doc_id": doc_id,
+                    "source_name": pt.payload.get("source", doc_id),
+                    "source_type": pt.payload.get("source_type", "unknown"),
+                    "access_level": pt.payload.get("access_level", "default"),
+                    "version": pt.payload.get("version", 1),
+                    "chunk_count": 0,
+                    "created_at": pt.payload.get("created_at"),
+                }
+            docs_map[doc_id]["chunk_count"] += 1
+
+        return list(docs_map.values())
+

@@ -61,6 +61,13 @@ CIRCUIT_BREAKER_TRIPPED_TOTAL = Counter(
     ["provider"],
 )
 
+# User Feedback metrics
+FEEDBACK_TOTAL = Counter(
+    "rag_feedback_total",
+    "Total user feedback ratings partitioned by value (up/down)",
+    ["rating"],
+)
+
 # Latency histograms
 REQUEST_LATENCY_SECONDS = Histogram(
     "rag_request_latency_seconds",
@@ -132,6 +139,11 @@ def record_gateway_failover(from_provider: str, to_provider: str) -> None:
 def record_circuit_breaker_trip(provider: str) -> None:
     """Record a circuit breaker tripping to the OPEN state."""
     CIRCUIT_BREAKER_TRIPPED_TOTAL.labels(provider=provider).inc()
+
+
+def record_feedback(rating: str) -> None:
+    """Record a user feedback submission."""
+    FEEDBACK_TOTAL.labels(rating=rating).inc()
 
 
 def record_node_latency(node_name: str, latency: float) -> None:
