@@ -102,6 +102,14 @@ class GenerateNode:
         prompt = f"Context passages:\n{context_text}\n\nQuestion: {query}\n\nAnswer:"
         instruction = WEB_SYSTEM_INSTRUCTION if is_web_sourced else SYSTEM_INSTRUCTION
 
+        groundedness_feedback = state.get("groundedness_feedback")
+        if groundedness_feedback:
+            logger.info(f"GenerateNode incorporating groundedness feedback: '{groundedness_feedback}'")
+            prompt += (
+                f"\n\nIMPORTANT REGENERATION NOTE: A previous draft contained unsupported claims: {groundedness_feedback}. "
+                "You must strictly adhere ONLY to facts directly stated in the context passages above and eliminate all ungrounded assertions."
+            )
+
         logger.info(f"GenerateNode invoking LLM gateway for query: '{query}' (web_sourced: {is_web_sourced})")
         answer_text, provider_used = await self.gateway.generate(
             prompt=prompt,

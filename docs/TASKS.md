@@ -53,11 +53,11 @@ Work phases in order — each phase produces something runnable/testable before 
 - **Done when**: a deliberately hard/ambiguous query triggers a rewrite-and-retry, visible in the trace, and an out-of-corpus query correctly falls back to web search rather than hallucinating. (Verified in tests: ambiguous/irrelevant queries trigger bounded rewrite loop; out-of-corpus queries fall back to web search returning `[Web-Sourced Answer]` with web citations; 53/53 tests passing).
 
 ## Phase 8 — Self-RAG / Groundedness + Guardrails
-- [ ] Groundedness check node (separate LLM-as-judge call, per `DESIGN.md` §4).
-- [ ] Regeneration-on-ungrounded edge, bounded by `MAX_GROUNDEDNESS_RETRIES`.
-- [ ] Input guardrails: prompt-injection detection (user message *and* retrieved content), PII redaction before logging.
-- [ ] Output guardrails: toxicity/safety check, citation verification.
-- **Done when**: a deliberately injected instruction inside a test document does not get followed, and a deliberately unsupported claim in a forced-bad draft answer is caught and corrected.
+- [x] Groundedness check node (separate LLM-as-judge call, per `DESIGN.md` §4).
+- [x] Regeneration-on-ungrounded edge, bounded by `MAX_GROUNDEDNESS_RETRIES`.
+- [x] Input guardrails: prompt-injection detection (user message *and* retrieved content), PII redaction before logging.
+- [x] Output guardrails: toxicity/safety check, citation verification.
+- **Done when**: a deliberately injected instruction inside a test document does not get followed, and a deliberately unsupported claim in a forced-bad draft answer is caught and corrected. (Verified in tests: prompt-injected user query blocked immediately at input gate; injected instruction in document neutralized and ignored by generator; forced-bad draft with unsupported Mars hallucination caught by groundedness judge and regenerated with factually supported claims; 63/63 tests passing).
 
 ## Phase 9 — Multi-Modal Ingestion
 - [ ] Layout-aware PDF/DOCX/PPTX parsing (table/figure region detection).

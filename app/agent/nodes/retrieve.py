@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from app.agent.guardrails import InputGuardrails
 from app.agent.state import AgentState
 from app.retrieval.retriever import HybridRetriever
 
@@ -19,6 +20,7 @@ class RetrieveNode:
         """Retrieve candidate document chunks matching the query and tenant filters."""
         query = (state.get("rewritten_query") or state.get("query", "")).strip()
         access_level = state.get("access_level", "default")
+        existing_flags = list(state.get("guardrail_flags", []))
 
         logger.info(f"RetrieveNode searching for: '{query}' (tenant: {access_level})")
 
@@ -32,4 +34,16 @@ class RetrieveNode:
         )
 
         logger.info(f"RetrieveNode retrieved {len(chunks)} candidate chunks")
-        return {"retrieved_docs": chunks}
+
+        # Neutralize any indirect prompt injections lurking inside retrieved document passages
+        sanitized_chunks = []
+        new_flags = list(existing_flags)
+        for chunk in chunks:
+            clean_chunk, chunk_flags = InputGuardrails.sanitize_retrieved_chunk(chunk)
+            sanitized_chunks.append(clean_chunk)
+            new_flags.extend(chunk_flags)
+
+        return {
+            "retrieved_docs": sanitized_chunks,
+            "guardrail_flags": new_flags,
+        }

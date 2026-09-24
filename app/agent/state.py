@@ -33,6 +33,8 @@ class AgentState(TypedDict):
     draft_answer: str | None
     citations: list[Citation]
     groundedness_score: float | None
+    groundedness_retries: int
+    groundedness_feedback: str | None
     guardrail_flags: list[str]
 
     final_answer: str | None
@@ -64,6 +66,8 @@ def create_initial_state(
         draft_answer=None,
         citations=[],
         groundedness_score=None,
+        groundedness_retries=0,
+        groundedness_feedback=None,
         guardrail_flags=[],
         final_answer=None,
         provider_used=None,
