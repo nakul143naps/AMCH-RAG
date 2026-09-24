@@ -144,7 +144,17 @@ flowchart TD
   - *Challenge 1 (Table Fragmentation in Sentence Chunkers)*: Standard recursive chunkers split text on periods, commas, or line breaks. When applied to tables, rows and columns become separated across different chunks, completely destroying the semantic association between column headers and row values.
   - *Solution*: Modality-aware chunking. In `SemanticChunker`, parts tagged with `modality="table"` or `modality="image_caption"` bypass sentence-splitting entirely and are emitted as discrete, whole chunks.
   - *Challenge 2 (Offline & Test Resilience for Vision API)*: Calling Gemini Multimodal during automated test suites or offline operation introduces flakiness, latency, and API key dependencies.
-  - *Solution*: `VisionCaptioner` inspects image dimensions and format via PIL, checks `GEMINI_API_KEY`, and falls back to a structured metadata caption if offline or during tests, while supporting full multimodal extraction in production.
+### Step 11: Two-Tier Memory — Short-Term Buffer Compression & Durable User Facts (Phase 10)
+- **Goal**: Enable session-level thread continuity via LangGraph checkpointer and durable cross-session personal memory via Qdrant hybrid retrieval.
+- **Key Decision**:
+  - Short-Term Memory: Managed through LangGraph thread checkpointers (`MemorySaver` / session IDs). When dialogue history exceeds `SHORT_TERM_MEMORY_MAX_MESSAGES` (default 10), `ShortTermMemoryManager` uses LLM summarization to compress earlier turns into a compact narrative while retaining recent messages intact.
+  - Long-Term Memory: `UserMemoryService` extracts durable facts, preferences, and project background from dialogue turns via JSON output parsing. Facts are indexed into a dedicated `user_memory` Qdrant collection with dense (`bge-small-en-v1.5`) and sparse (BM25) vectors, strictly isolated by `user_id`.
+  - Injected via `MemoryNode` into `AgentState.memory_context`, seamlessly enriching `GenerateNode`'s prompt context without requiring the user to restate prior preferences.
+- **Difficulties Faced**:
+  - *Challenge 1 (Extracting Meaningful Facts vs Fleeting Noise)*: Users say things like "hello", "calculate 15 * 4", and "I prefer Python". Blindly storing every message rapidly pollutes the memory store with garbage.
+  - *Solution*: Few-shot guided extraction prompt in `UserMemoryService`. Specifically instructs the model to ignore transient queries, commands, or pleasantries, extracting ONLY durable preferences, biographical details, and architectural constraints into strict JSON.
+  - *Challenge 2 (Tenant / User Isolation in Shared Vectors)*: Cross-session facts from User A must NEVER be returned in queries asked by User B.
+  - *Solution*: Hard filter condition in `UserMemoryService.search_user_memory`: constructs a Qdrant `Filter(must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))])`. Retrieval is mathematically partitioned at the query engine level.
 
 ---
 
@@ -520,6 +530,29 @@ class VisionCaptioner:
             contents=[prompt, image_part]
         )
         return response.text.strip()
+```
+
+---
+
+### Component 14: Two-Tier Memory — Dialogue Buffer Summarization & User Fact Hybrid Index
+> **Interview Question**: *"How do you handle persistent user memory across different sessions without overflowing the LLM context window?"*  
+> **Answer**: *"We split memory into two distinct operational horizons:  
+> 1. Short-Term Dialogue Compression: Managed in-session via LangGraph's checkpointer. When dialogue length exceeds a configurable message threshold (e.g. 10 turns), `ShortTermMemoryManager` triggers an automated LLM summarization call that compresses older messages into an ongoing dense summary, while keeping recent turns verbatim.  
+> 2. Cross-Session Long-Term User Facts: At the conclusion of conversation turns, `UserMemoryService` extracts durable personal facts, constraints, and preferences (ignoring transient pleasantries or queries) via guided JSON extraction. These facts are stored in a dedicated Qdrant collection (`user_memory`) embedded with dense and sparse vectors, tagged by `user_id`. When a user initiates a new session tomorrow, `MemoryNode` retrieves relevant past facts via hybrid search and injects them into the generator prompt before retrieval, ensuring persistent user personalization across distinct sessions."*
+
+```python
+# app/memory/long_term.py
+class UserMemoryService:
+    def search_user_memory(self, user_id: str, query: str, limit: int = 5) -> list[UserFact]:
+        # Hybrid search in user_memory collection strictly filtered by user_id
+        user_filter = Filter(must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))])
+        return self.vector_mgr.query_hybrid(dense_vector, sparse_vector, limit, user_filter, collection="user_memory")
+
+# app/agent/nodes/memory.py
+class MemoryNode:
+    async def __call__(self, state: AgentState) -> dict[str, Any]:
+        # Injects combined short-term conversation summary and long-term user facts into state
+        return {"memory_context": combined_memory, "chat_history": retained_messages}
 ```
 
 ---

@@ -150,15 +150,15 @@ async def test_cache_node_lookup_hit_and_miss(tmp_path: Path):
 
 def test_conditional_edges_logic():
     """Verify conditional edge decision functions route states accurately."""
-    # Route decision
+    # Route decision: cache routes to cache_lookup; non-cache routes flow through memory
     assert route_decision({"route": "cache"}) == "cache_lookup"  # type: ignore
-    assert route_decision({"route": "retrieve"}) == "retrieve"  # type: ignore
-    assert route_decision({"route": "memory"}) == "retrieve"  # type: ignore
-    assert route_decision({"route": "tool_call"}) == "retrieve"  # type: ignore
+    assert route_decision({"route": "retrieve"}) == "memory"  # type: ignore
+    assert route_decision({"route": "memory"}) == "memory"  # type: ignore
+    assert route_decision({"route": "tool_call"}) == "memory"  # type: ignore
 
-    # Cache decision
+    # Cache decision: cache hit ends; cache miss flows to memory
     assert cache_decision({"cache_hit": True}) == "__end__"  # type: ignore
-    assert cache_decision({"cache_hit": False}) == "retrieve"  # type: ignore
+    assert cache_decision({"cache_hit": False}) == "memory"  # type: ignore
 
 
 @pytest.mark.asyncio

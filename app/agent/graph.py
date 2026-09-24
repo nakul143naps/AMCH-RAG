@@ -1,7 +1,7 @@
 """LangGraph Agentic Orchestration Graph definition with CRAG, Self-RAG Groundedness, and Guardrails."""
 
 import logging
-from typing import Literal
+from typing import Any, Literal
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -12,6 +12,7 @@ from app.agent.nodes import (
     GradeNode,
     GroundednessNode,
     InputGuardrailsNode,
+    MemoryNode,
     OutputGuardrailsNode,
     RerankNode,
     RetrieveNode,
@@ -32,20 +33,21 @@ def input_guardrail_decision(state: AgentState) -> Literal["__end__", "router"]:
     return "router"
 
 
-def route_decision(state: AgentState) -> Literal["cache_lookup", "retrieve"]:
+def route_decision(state: AgentState) -> Literal["cache_lookup", "memory"]:
     """Conditional edge router evaluating the state route decision."""
     route = state.get("route")
     if route == "cache":
         return "cache_lookup"
-    # memory and tool_call fall back to retrieve until dedicated sub-graphs are wired
-    return "retrieve"
+    # Both "memory" and "retrieve" flow into memory first to load context/facts
+    return "memory"
 
 
-def cache_decision(state: AgentState) -> Literal["__end__", "retrieve"]:
+def cache_decision(state: AgentState) -> Literal["__end__", "memory"]:
     """Conditional edge evaluating whether cache hit allows terminating early."""
     if state.get("cache_hit", False):
         return END
-    return "retrieve"
+    # If cache miss, fetch user/conversation memory before retrieving
+    return "memory"
 
 
 def crag_decision(state: AgentState) -> Literal["generate", "rewrite", "web_search"]:
@@ -121,6 +123,7 @@ def build_agent_graph(
     input_guardrails_node: InputGuardrailsNode | None = None,
     router_node: RouterNode | None = None,
     cache_node: CacheLookupNode | None = None,
+    memory_node: MemoryNode | None = None,
     retrieve_node: RetrieveNode | None = None,
     rerank_node: RerankNode | None = None,
     grade_node: GradeNode | None = None,
@@ -129,11 +132,13 @@ def build_agent_graph(
     generate_node: GenerateNode | None = None,
     groundedness_node: GroundednessNode | None = None,
     output_guardrails_node: OutputGuardrailsNode | None = None,
+    checkpointer: Any | None = None,
 ) -> CompiledStateGraph:
-    """Build and compile the Phase 8 LangGraph RAG workflow with CRAG, Self-RAG, and Guardrails."""
+    """Build and compile the Phase 10 LangGraph RAG workflow with Memory, CRAG, Self-RAG, and Guardrails."""
     input_guardrails = input_guardrails_node or InputGuardrailsNode()
     router = router_node or RouterNode()
     cache = cache_node or CacheLookupNode()
+    memory = memory_node or MemoryNode()
     retrieve = retrieve_node or RetrieveNode()
     rerank = rerank_node or RerankNode()
     grader = grade_node or GradeNode()
@@ -149,6 +154,7 @@ def build_agent_graph(
     workflow.add_node("input_guardrails", input_guardrails)
     workflow.add_node("router", router)
     workflow.add_node("cache_lookup", cache)
+    workflow.add_node("memory", memory)
     workflow.add_node("retrieve", retrieve)
     workflow.add_node("rerank", rerank)
     workflow.add_node("grade", grader)
@@ -176,7 +182,7 @@ def build_agent_graph(
         route_decision,
         {
             "cache_lookup": "cache_lookup",
-            "retrieve": "retrieve",
+            "memory": "memory",
         },
     )
 
@@ -185,9 +191,12 @@ def build_agent_graph(
         cache_decision,
         {
             END: END,
-            "retrieve": "retrieve",
+            "memory": "memory",
         },
     )
+
+    # Memory node loads user facts and history summary, then proceeds to retrieve
+    workflow.add_edge("memory", "retrieve")
 
     workflow.add_edge("retrieve", "rerank")
     workflow.add_edge("rerank", "grade")
@@ -225,4 +234,6 @@ def build_agent_graph(
     # Output guardrails flow to END
     workflow.add_edge("output_guardrails", END)
 
+    if checkpointer:
+        return workflow.compile(checkpointer=checkpointer)
     return workflow.compile()

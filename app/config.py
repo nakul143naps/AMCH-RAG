@@ -97,6 +97,12 @@ class Settings(BaseSettings):
     # Web Search Fallback (Zero cost: DuckDuckGo search)
     ENABLE_WEB_SEARCH_FALLBACK: bool = True
 
+    # Memory Settings (Short-term & Long-term)
+    QDRANT_USER_MEMORY_COLLECTION: str = "user_memory"
+    SHORT_TERM_MEMORY_MAX_MESSAGES: int = 10  # Token/message budget before summarization
+    LONG_TERM_MEMORY_SIMILARITY_THRESHOLD: float = 0.65
+    ENABLE_LONG_TERM_MEMORY: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

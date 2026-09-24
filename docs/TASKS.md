@@ -67,9 +67,9 @@ Work phases in order — each phase produces something runnable/testable before 
 - **Done when**: a PDF containing a table and a chart is ingested such that a question about a specific table value and a question about the chart's trend are both answerable. (Verified in tests: CSV tables, PPTX slides, Web HTML, PDF tables and charts ingested cleanly; tables serialized to intact Markdown; Gemini multimodal captions extracted; hybrid retrieval verifies both table values and chart trends are retrieved; 69/69 tests passing).
 
 ## Phase 10 — Memory
-- [ ] Short-term: conversation buffer + summarization once over a token budget (LangGraph checkpointer).
-- [ ] Long-term: fact extraction + storage per-user, retrievable via the same hybrid search.
-- **Done when**: a fact stated by the user in one session is correctly recalled in a later session.
+- [x] Short-term: conversation buffer + summarization once over a token budget (LangGraph checkpointer).
+- [x] Long-term: fact extraction + storage per-user, retrievable via the same hybrid search.
+- **Done when**: a fact stated by the user in one session is correctly recalled in a later session. (Verified in tests: `ShortTermMemoryManager` compresses dialogue over budget; `UserMemoryService` extracts and stores facts in Qdrant with tenant isolation; `MemoryNode` injects memory into `GenerateNode`; cross-session test proves fact stated in session 1 is recalled and incorporated into session 2 without repetition; 75/75 tests passing).
 
 ## Phase 11 — Multi-Provider Model Gateway
 - [ ] Gateway interface (`generate`, `grade`, `route`, `check_groundedness`, `rewrite_query` — each tagged with a "purpose" per `RULES.md` §4).

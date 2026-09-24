@@ -94,6 +94,21 @@ class VectorStoreManager:
                 },
             )
 
+        # 3. User Memory Collection (Long-Term durable facts)
+        if settings.QDRANT_USER_MEMORY_COLLECTION not in collections:
+            self.client.create_collection(
+                collection_name=settings.QDRANT_USER_MEMORY_COLLECTION,
+                vectors_config={
+                    "dense": VectorParams(
+                        size=settings.EMBEDDING_DIM,
+                        distance=Distance.COSINE,
+                    )
+                },
+                sparse_vectors_config={
+                    "sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False))
+                },
+            )
+
     def upsert_chunks(
         self,
         chunks: list[ChunkPayload],

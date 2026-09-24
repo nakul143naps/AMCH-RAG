@@ -99,7 +99,15 @@ class GenerateNode:
 
         # Format context and citations
         context_text, citations = self._format_context(chunks)
-        prompt = f"Context passages:\n{context_text}\n\nQuestion: {query}\n\nAnswer:"
+        prompt_parts = []
+
+        memory_context = state.get("memory_context")
+        if memory_context:
+            prompt_parts.append(f"User & Conversation Memory:\n{memory_context.strip()}")
+
+        prompt_parts.append(f"Context passages:\n{context_text}")
+        prompt_parts.append(f"Question: {query}\n\nAnswer:")
+        prompt = "\n\n".join(prompt_parts)
         instruction = WEB_SYSTEM_INSTRUCTION if is_web_sourced else SYSTEM_INSTRUCTION
 
         groundedness_feedback = state.get("groundedness_feedback")

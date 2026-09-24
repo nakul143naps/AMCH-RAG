@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from typing import Any
 
 from langchain_core.messages import BaseMessage
 from langgraph.graph.state import CompiledStateGraph
@@ -16,14 +17,22 @@ logger = logging.getLogger(__name__)
 class AgentService:
     """Orchestrates agentic query execution through the compiled LangGraph workflow."""
 
-    def __init__(self, graph: CompiledStateGraph | None = None) -> None:
-        self.graph = graph or build_agent_graph()
+    def __init__(
+        self,
+        graph: CompiledStateGraph | None = None,
+        checkpointer: Any | None = None,
+    ) -> None:
+        from langgraph.checkpoint.memory import MemorySaver
+
+        self.checkpointer = checkpointer or MemorySaver()
+        self.graph = graph or build_agent_graph(checkpointer=self.checkpointer)
 
     async def ainvoke(
         self,
         query: str,
         chat_history: list[BaseMessage] | None = None,
         user_id: str | None = None,
+        session_id: str | None = None,
         access_level: str = "default",
         trace_id: str | None = None,
     ) -> AgentState:
@@ -36,7 +45,15 @@ class AgentService:
             access_level=access_level,
         )
 
-        final_state = await self.graph.ainvoke(initial_state)
+        config = {}
+        if session_id:
+            config["configurable"] = {"thread_id": session_id}
+        elif user_id:
+            config["configurable"] = {"thread_id": f"user_{user_id}"}
+        else:
+            config["configurable"] = {"thread_id": "default_session"}
+
+        final_state = await self.graph.ainvoke(initial_state, config=config)
         return final_state
 
     async def answer(self, request: QueryRequest) -> QueryResponse:
@@ -44,6 +61,8 @@ class AgentService:
         trace_id = str(uuid.uuid4())
         final_state = await self.ainvoke(
             query=request.query,
+            user_id=request.user_id,
+            session_id=request.session_id,
             access_level=request.access_level,
             trace_id=trace_id,
         )
@@ -52,6 +71,25 @@ class AgentService:
             Citation(**c) if isinstance(c, dict) else c
             for c in final_state.get("citations", [])
         ]
+
+        # Post-generation durable user fact extraction
+        if request.user_id and final_state.get("final_answer"):
+            from app.memory.long_term import UserMemoryService
+
+            try:
+                user_mem = UserMemoryService.get_instance()
+                extracted = await user_mem.extract_facts(
+                    user_message=request.query,
+                    assistant_response=final_state.get("final_answer", ""),
+                )
+                if extracted:
+                    await user_mem.async_store_facts(
+                        user_id=request.user_id, facts=extracted
+                    )
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    f"Background fact extraction failed for user '{request.user_id}': {e}"
+                )
 
         return QueryResponse(
             answer=final_state.get("final_answer") or "",

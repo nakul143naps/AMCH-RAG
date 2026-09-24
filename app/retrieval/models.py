@@ -87,6 +87,9 @@ class QueryRequest(BaseModel):
     session_id: str | None = Field(
         default=None, description="Client session identifier"
     )
+    user_id: str | None = Field(
+        default=None, description="Optional user identifier for cross-session long-term memory"
+    )
     access_level: str = Field(
         default="default", description="User access level for tenant filtering"
     )
