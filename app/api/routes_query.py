@@ -1,7 +1,8 @@
-"""Query API routes for baseline RAG and question answering."""
+import time
 
 from fastapi import APIRouter, HTTPException, status
 
+from app.observability import REQUEST_LATENCY_SECONDS
 from app.retrieval.models import QueryRequest, QueryResponse
 from app.retrieval.service import BaselineRAGService
 
@@ -17,9 +18,13 @@ router = APIRouter(prefix="/query", tags=["Query"])
 )
 async def query_knowledge_base(request: QueryRequest) -> QueryResponse:
     """Execute query retrieval and grounded answer synthesis."""
+    start_time = time.perf_counter()
     try:
         service = BaselineRAGService()
-        return await service.answer(request)
+        response = await service.answer(request)
+        duration = time.perf_counter() - start_time
+        REQUEST_LATENCY_SECONDS.labels(endpoint="/query").observe(duration)
+        return response
     except RuntimeError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

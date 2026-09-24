@@ -80,11 +80,11 @@ Work phases in order — each phase produces something runnable/testable before 
 - **Done when**: simulating a 429/500 from the primary provider transparently falls through to the next provider without a failed request, verified by a test. (Verified in tests: Gemini primary -> Groq fallback on 429/500 error; Groq -> OpenRouter tertiary fallback; CircuitBreaker CLOSED -> OPEN -> HALF_OPEN lifecycle; purpose-specific convenience methods; 81/81 tests passing).
 
 ## Phase 12 — Observability & Eval
-- [ ] OpenTelemetry spans on every node; `trace_id` threaded through `AgentState`.
-- [ ] Langfuse (or equivalent) wired for LLM-specific traces (prompt/completion/cost/latency).
-- [ ] Prometheus metrics: cache hit rate, correction-loop rate, groundedness pass rate, failover count, latency histograms.
-- [ ] Golden Q&A dataset (start with 20–30 hand-written Q&A pairs against the test corpus) + RAGAS eval script.
-- **Done when**: a full request is traceable end-to-end in the tracing UI, and the eval script produces faithfulness/relevancy/precision/recall numbers you can compare across changes.
+- [x] OpenTelemetry spans on every node; `trace_id` threaded through `AgentState`.
+- [x] Langfuse (or equivalent) wired for LLM-specific traces (prompt/completion/cost/latency).
+- [x] Prometheus metrics: cache hit rate, correction-loop rate, groundedness pass rate, failover count, latency histograms.
+- [x] Golden Q&A dataset (start with 20–30 hand-written Q&A pairs against the test corpus) + RAGAS eval script.
+- **Done when**: a full request is traceable end-to-end in the tracing UI, and the eval script produces faithfulness/relevancy/precision/recall numbers you can compare across changes. (Verified in tests: OpenTelemetry tracer configured with node wrapper tracking all 12 graph nodes; Prometheus metrics registry and GET /metrics endpoint; LangfuseTracer generation logging; 25-item golden dataset in evals/golden_dataset.json; evals/evaluate.py benchmark script generating evals/report.json; 92/92 tests passing).
 
 ## Phase 13 — API Polish & Streaming
 - [ ] `POST /query` streaming (SSE) with interleaved token/citation/correction events per `DESIGN.md` §5.

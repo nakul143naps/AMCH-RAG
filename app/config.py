@@ -103,6 +103,20 @@ class Settings(BaseSettings):
     LONG_TERM_MEMORY_SIMILARITY_THRESHOLD: float = 0.65
     ENABLE_LONG_TERM_MEMORY: bool = True
 
+    # Observability & Metrics
+    OTEL_EXPORTER_OTLP_ENDPOINT: str | None = Field(
+        default=None,
+        description="OpenTelemetry OTLP collector gRPC/HTTP endpoint (e.g. http://localhost:4317)",
+    )
+    OTEL_SERVICE_NAME: str = "amch-rag-service"
+    LANGFUSE_PUBLIC_KEY: str | None = Field(default=None, description="Langfuse public API key")
+    LANGFUSE_SECRET_KEY: str | None = Field(default=None, description="Langfuse secret API key")
+    LANGFUSE_HOST: str = Field(
+        default="https://cloud.langfuse.com",
+        description="Langfuse instance host URL",
+    )
+    ENABLE_PROMETHEUS: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

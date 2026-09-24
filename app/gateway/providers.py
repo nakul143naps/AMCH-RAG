@@ -17,6 +17,10 @@ class BaseLLMProvider(ABC):
         """Check if provider API keys and settings are configured."""
 
     @abstractmethod
+    def get_model_name(self) -> str:
+        """Return the default model name for this provider."""
+
+    @abstractmethod
     async def generate_text(
         self,
         prompt: str,
@@ -39,6 +43,9 @@ class GeminiProvider(BaseLLMProvider):
 
     def is_configured(self) -> bool:
         return bool(self.api_key and self.client)
+
+    def get_model_name(self) -> str:
+        return self.settings.GEMINI_GENERATION_MODEL
 
     async def generate_text(
         self,
@@ -79,6 +86,9 @@ class GroqProvider(BaseLLMProvider):
     def is_configured(self) -> bool:
         return bool(self.api_key and self.client)
 
+    def get_model_name(self) -> str:
+        return self.settings.GROQ_MODEL
+
     async def generate_text(
         self,
         prompt: str,
@@ -118,6 +128,9 @@ class OpenRouterProvider(BaseLLMProvider):
 
     def is_configured(self) -> bool:
         return bool(self.api_key and self.client)
+
+    def get_model_name(self) -> str:
+        return self.settings.OPENROUTER_MODEL
 
     async def generate_text(
         self,

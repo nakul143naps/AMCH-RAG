@@ -1,0 +1,252 @@
+[
+  {
+    "id": "golden_01",
+    "category": "architecture",
+    "question": "What is the primary LLM used in AMCH-RAG and what are the fallback providers?",
+    "ground_truth": "The primary LLM provider in AMCH-RAG is Google Gemini (Gemini AI Pro umbrella), with Groq as fallback 1 and OpenRouter as fallback 2.",
+    "context": [
+      "The primary provider is Google Gemini, with automatic ordered fallback to Groq then OpenRouter if rate limits or errors occur."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_02",
+    "category": "architecture",
+    "question": "How does AMCH-RAG combine dense and sparse vector retrieval scores without arbitrary manual weight tuning?",
+    "ground_truth": "AMCH-RAG combines dense and sparse BM25 scores using Reciprocal Rank Fusion (RRF), calculating 1 / (60 + rank) for each retriever without requiring scale normalization.",
+    "context": [
+      "Dense and sparse search results are fused using Reciprocal Rank Fusion (RRF) with a default smoothing constant of 60, avoiding fragile score normalization."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_03",
+    "category": "architecture",
+    "question": "Why is the embedding model fixed locally rather than failing over to other cloud embedding APIs?",
+    "ground_truth": "The embedding model is fixed to local FastEmbed (BAAI/bge-small-en-v1.5) because different embedding models generate mathematically incompatible vector spaces, and switching mid-stream would corrupt retrieval.",
+    "context": [
+      "The embedding model is pinned to FastEmbed BAAI/bge-small-en-v1.5 and never failed over because differing embedding dimensions and vector spaces corrupt retrieval."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_04",
+    "category": "caching",
+    "question": "What are the two tiers in the AMCH-RAG caching architecture and their target latencies?",
+    "ground_truth": "Tier 1 is an Exact normalized query hash cache (<5ms) using Redis or SQLite, and Tier 2 is a Semantic vector cache using Qdrant with cosine similarity >= 0.90 (<300ms).",
+    "context": [
+      "AMCH-RAG employs a Two-Tier Cache: Tier 1 Exact normalized query SHA-256 cache serving in <5ms, and Tier 2 Semantic vector cache in Qdrant with a 0.90 similarity threshold."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_05",
+    "category": "caching",
+    "question": "How does cache invalidation work when a document is updated or deleted in the system?",
+    "ground_truth": "A reverse document index maps doc_id to cached query keys; updating or deleting a document evicts all associated exact cache keys and Qdrant semantic cache entries atomically.",
+    "context": [
+      "Reverse document indexing maps each doc_id to its cached query entries. On re-ingestion or deletion, all linked cache entries and semantic points are purged."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_06",
+    "category": "crag",
+    "question": "What criteria does the CRAG GradeNode use to classify retrieved chunks?",
+    "ground_truth": "The GradeNode classifies chunks into 'relevant', 'ambiguous', or 'irrelevant' using an LLM-as-judge relevance prompt, filtering out irrelevant chunks before generation.",
+    "context": [
+      "GradeNode evaluates retrieved chunk relevance concurrently into relevant, ambiguous, or irrelevant. Irrelevant chunks are discarded before synthesis."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_07",
+    "category": "crag",
+    "question": "What happens when retrieved documents are insufficient and correction attempts reach the limit?",
+    "ground_truth": "When no relevant documents remain and MAX_CORRECTION_ATTEMPTS (2) is reached, CRAG falls back to WebSearchNode using DuckDuckGo search, clearly labeling the answer as web-sourced.",
+    "context": [
+      "If retrieval returns no relevant documents and correction attempts reach MAX_CORRECTION_ATTEMPTS, the workflow routes to web_search and generates an answer prefixed with [Web-Sourced Answer]."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_08",
+    "category": "guardrails",
+    "question": "How does AMCH-RAG protect against indirect prompt injections hidden inside retrieved documents?",
+    "ground_truth": "The document sanitizer scans retrieved text for adversarial injection phrases and neutralizes them with [NEUTRALIZED_UNTRUSTED_INSTRUCTION] tags before feeding them to downstream LLMs.",
+    "context": [
+      "Retrieved chunks undergo indirect prompt injection neutralization where hostile directives like system overrides are replaced with [NEUTRALIZED_UNTRUSTED_INSTRUCTION]."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_09",
+    "category": "guardrails",
+    "question": "What threshold is used by the Self-RAG groundedness judge to accept a draft answer?",
+    "ground_truth": "A groundedness score of 0.70 or higher is required for an answer to pass directly to output guardrails; otherwise it triggers cyclical regeneration up to MAX_GROUNDEDNESS_RETRIES times.",
+    "context": [
+      "The Self-RAG GroundednessNode scores factual alignment; scores >= 0.70 pass to output guardrails, while lower scores trigger regeneration up to 2 retries with feedback."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_10",
+    "category": "guardrails",
+    "question": "What does the OutputGuardrailsNode do if the LLM invents a citation index like [9] when only chunks 1 and 2 were provided?",
+    "ground_truth": "OutputGuardrailsNode detects that citation index 9 does not exist in the valid chunk set, strips the hallucinated marker from the text, and logs a guardrail flag.",
+    "context": [
+      "OutputGuardrails verifies all citation markers against retrieved chunk indices; hallucinated citation numbers are stripped from the response text."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_11",
+    "category": "tabular",
+    "question": "How are tables serialized during document ingestion in AMCH-RAG?",
+    "ground_truth": "Tables are converted into intact GitHub-flavored Markdown matrices and stored as single chunks with modality='table' to prevent sentence chunkers from fragmenting rows and columns.",
+    "context": [
+      "Ingested tables from CSV, DOCX, and PDF are serialized to GitHub Markdown and preserved whole with modality='table' to maintain structural relationships."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_12",
+    "category": "multimodal_chart",
+    "question": "How are charts and diagrams in PDF files processed and made searchable?",
+    "ground_truth": "Charts and figures are extracted as images and passed to Gemini Multimodal vision, which extracts chart types, numerical data points, and trends into descriptive captions stored as modality='image_caption'.",
+    "context": [
+      "VisionCaptioner submits chart and diagram images to Gemini Multimodal, generating dense factual summaries and metric trends indexed under modality='image_caption'."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_13",
+    "category": "memory",
+    "question": "When does ShortTermMemoryManager compress conversation history into a summary?",
+    "ground_truth": "When dialogue history exceeds SHORT_TERM_MEMORY_MAX_MESSAGES (10 turns), older turns are compressed into a factual summary using an LLM, while keeping the most recent turns verbatim.",
+    "context": [
+      "ShortTermMemoryManager triggers LLM dialogue compression when message counts exceed 10, retaining an updated summary plus recent turns."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_14",
+    "category": "memory",
+    "question": "Where and how are durable long-term user preferences and facts stored?",
+    "ground_truth": "Durable user facts are extracted via JSON parsing and stored in a dedicated Qdrant collection named 'user_memory' with dense and BM25 sparse vectors, partitioned by user_id.",
+    "context": [
+      "UserMemoryService extracts durable user constraints into JSON and stores them in the Qdrant user_memory collection with user_id tenant filtering."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_15",
+    "category": "gateway",
+    "question": "Describe the three states and transitions of the ModelGateway CircuitBreaker.",
+    "ground_truth": "The states are CLOSED (normal operation), OPEN (tripped after 3 consecutive failures, fast-failing calls for 60s cooldown), and HALF_OPEN (allows 1 trial probe to check if the provider recovered).",
+    "context": [
+      "CircuitBreaker manages CLOSED, OPEN, and HALF_OPEN states. Three failures trip the breaker to OPEN; after a cooldown window, a canary request probes in HALF_OPEN."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_16",
+    "category": "clinical_medical",
+    "question": "What is myocardial infarction and what are common hallmark symptoms?",
+    "ground_truth": "Myocardial infarction is a cardiac event caused by blocked coronary blood flow, commonly presenting with severe chest pain, shortness of breath, and diaphoresis.",
+    "context": [
+      "Myocardial infarction occurs when coronary blood flow is acutely obstructed, presenting with crushing chest pain, dyspnea, and radiating arm pain."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_17",
+    "category": "clinical_medical",
+    "question": "What is the recommended first-line intervention window for acute ST-elevation myocardial infarction?",
+    "ground_truth": "Primary percutaneous coronary intervention (PCI) is recommended within 90 to 120 minutes of first medical contact for acute STEMI.",
+    "context": [
+      "For acute STEMI patients, primary percutaneous coronary intervention (PCI) should be initiated within 90 minutes of hospital arrival."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_18",
+    "category": "confidential_access",
+    "question": "What telemetry error code is associated with the classified orbit subsystem?",
+    "ground_truth": "The telemetry error code is CLASSIFIED-ERR-7788, requiring confidential access permissions to view.",
+    "context": [
+      "Top-secret telemetry error: CLASSIFIED-ERR-7788 detected in orbit subsystem."
+    ],
+    "access_level": "confidential"
+  },
+  {
+    "id": "golden_19",
+    "category": "confidential_access",
+    "question": "Can a user with access_level='public' retrieve documents tagged with access_level='confidential'?",
+    "ground_truth": "No, access-level filtering is enforced directly inside Qdrant's query filter; confidential points are mathematically excluded from public query results.",
+    "context": [
+      "Retrieval applies access-level filtering at the Qdrant query level using FieldCondition matches, strictly preventing unauthorized document retrieval."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_20",
+    "category": "reranking",
+    "question": "Which cross-encoder model does FlashRank use for local reranking and what is its footprint?",
+    "ground_truth": "FlashRank uses ms-marco-TinyBERT-L-2-v2, an ONNX-quantized cross-encoder model that is approximately 3.3MB with sub-10ms CPU inference time.",
+    "context": [
+      "FlashRank runs the ms-marco-TinyBERT-L-2-v2 model in ONNX format (~3.26MB), providing cross-attention scoring on CPU in under 10ms."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_21",
+    "category": "observability",
+    "question": "Which OpenTelemetry attributes are attached to each LangGraph agent node span?",
+    "ground_truth": "Node spans carry app.node, app.trace_id, app.user_id, app.access_level, app.latency_seconds, and domain-specific attributes like app.cache_hit or app.groundedness_score.",
+    "context": [
+      "Every node span in OpenTelemetry records app.node, app.trace_id, app.user_id, app.access_level, and execution latency."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_22",
+    "category": "observability",
+    "question": "What endpoint exposes Prometheus metrics in AMCH-RAG?",
+    "ground_truth": "The GET /metrics endpoint exposes Prometheus metrics in the standard Prometheus exposition format.",
+    "context": [
+      "GET /metrics exposes Prometheus metrics including cache hit rate, groundedness scores, gateway failovers, and latency histograms."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_23",
+    "category": "guardrails_pii",
+    "question": "How are email addresses and telephone numbers handled by InputGuardrails?",
+    "ground_truth": "InputGuardrails scans for PII patterns and replaces email addresses with [REDACTED_EMAIL] and phone numbers with [REDACTED_PHONE] before query processing.",
+    "context": [
+      "Input guardrails redact PII before logging and retrieval, transforming raw emails into [REDACTED_EMAIL] and phone numbers into [REDACTED_PHONE]."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_24",
+    "category": "architecture",
+    "question": "How does RouterNode avoid unnecessary vector searches for simple pleasantries like 'hello'?",
+    "ground_truth": "RouterNode checks conversational greeting regex heuristics; matching chit-chat immediately routes to 'cache' for a fast sub-5ms canned response without querying vectors or calling LLMs.",
+    "context": [
+      "Router fast-path intercepts greetings and polite chit-chat using regex patterns, directly routing to cache to return friendly responses in <5ms."
+    ],
+    "access_level": "public"
+  },
+  {
+    "id": "golden_25",
+    "category": "crag_rewrite",
+    "question": "Why does RewriteNode strip boolean search operators and query noise before retrying retrieval?",
+    "ground_truth": "Dense embedding models perform poorly on boolean operator noise (AND, OR, NOT); RewriteNode reformulates queries into clear semantic prose to optimize vector search recall.",
+    "context": [
+      "RewriteNode transforms ambiguous or keyword-heavy queries into semantically rich natural language queries to maximize hybrid vector and BM25 recall."
+    ],
+    "access_level": "public"
+  }
+]

@@ -1,0 +1,212 @@
+{
+  "timestamp": "2026-09-24T16:14:17Z",
+  "total_evaluated": 25,
+  "execution_duration_seconds": 15.35,
+  "aggregate_metrics": {
+    "faithfulness": 0.5215,
+    "answer_relevance": 0.4122,
+    "context_recall": 0.4213
+  },
+  "item_results": [
+    {
+      "id": "golden_01",
+      "category": "architecture",
+      "question": "What is the primary LLM used in AMCH-RAG and what are the fallback providers?",
+      "faithfulness": 0.703,
+      "answer_relevance": 0.96,
+      "context_recall": 0.562
+    },
+    {
+      "id": "golden_02",
+      "category": "architecture",
+      "question": "How does AMCH-RAG combine dense and sparse vector retrieval scores without arbitrary manual weight tuning?",
+      "faithfulness": 0.5,
+      "answer_relevance": 0.529,
+      "context_recall": 0.4
+    },
+    {
+      "id": "golden_03",
+      "category": "architecture",
+      "question": "Why is the embedding model fixed locally rather than failing over to other cloud embedding APIs?",
+      "faithfulness": 0.887,
+      "answer_relevance": 0.562,
+      "context_recall": 0.71
+    },
+    {
+      "id": "golden_04",
+      "category": "caching",
+      "question": "What are the two tiers in the AMCH-RAG caching architecture and their target latencies?",
+      "faithfulness": 1.0,
+      "answer_relevance": 0.079,
+      "context_recall": 0.857
+    },
+    {
+      "id": "golden_05",
+      "category": "caching",
+      "question": "How does cache invalidation work when a document is updated or deleted in the system?",
+      "faithfulness": 0.929,
+      "answer_relevance": 0.343,
+      "context_recall": 0.743
+    },
+    {
+      "id": "golden_06",
+      "category": "crag",
+      "question": "What criteria does the CRAG GradeNode use to classify retrieved chunks?",
+      "faithfulness": 0.603,
+      "answer_relevance": 0.214,
+      "context_recall": 0.483
+    },
+    {
+      "id": "golden_07",
+      "category": "crag",
+      "question": "What happens when retrieved documents are insufficient and correction attempts reach the limit?",
+      "faithfulness": 0.438,
+      "answer_relevance": 0.364,
+      "context_recall": 0.35
+    },
+    {
+      "id": "golden_08",
+      "category": "guardrails",
+      "question": "How does AMCH-RAG protect against indirect prompt injections hidden inside retrieved documents?",
+      "faithfulness": 0.214,
+      "answer_relevance": 0.094,
+      "context_recall": 0.171
+    },
+    {
+      "id": "golden_09",
+      "category": "guardrails",
+      "question": "What threshold is used by the Self-RAG groundedness judge to accept a draft answer?",
+      "faithfulness": 0.375,
+      "answer_relevance": 0.343,
+      "context_recall": 0.3
+    },
+    {
+      "id": "golden_10",
+      "category": "guardrails",
+      "question": "What does the OutputGuardrailsNode do if the LLM invents a citation index like [9] when only chunks 1 and 2 were provided?",
+      "faithfulness": 0.347,
+      "answer_relevance": 0.553,
+      "context_recall": 0.278
+    },
+    {
+      "id": "golden_11",
+      "category": "tabular",
+      "question": "How are tables serialized during document ingestion in AMCH-RAG?",
+      "faithfulness": 0.588,
+      "answer_relevance": 0.2,
+      "context_recall": 0.471
+    },
+    {
+      "id": "golden_12",
+      "category": "multimodal_chart",
+      "question": "How are charts and diagrams in PDF files processed and made searchable?",
+      "faithfulness": 0.486,
+      "answer_relevance": 0.273,
+      "context_recall": 0.389
+    },
+    {
+      "id": "golden_13",
+      "category": "memory",
+      "question": "When does ShortTermMemoryManager compress conversation history into a summary?",
+      "faithfulness": 0.347,
+      "answer_relevance": 0.414,
+      "context_recall": 0.278
+    },
+    {
+      "id": "golden_14",
+      "category": "memory",
+      "question": "Where and how are durable long-term user preferences and facts stored?",
+      "faithfulness": 0.556,
+      "answer_relevance": 0.5,
+      "context_recall": 0.444
+    },
+    {
+      "id": "golden_15",
+      "category": "gateway",
+      "question": "Describe the three states and transitions of the ModelGateway CircuitBreaker.",
+      "faithfulness": 0.272,
+      "answer_relevance": 0.265,
+      "context_recall": 0.217
+    },
+    {
+      "id": "golden_16",
+      "category": "clinical_medical",
+      "question": "What is myocardial infarction and what are common hallmark symptoms?",
+      "faithfulness": 0.758,
+      "answer_relevance": 0.429,
+      "context_recall": 0.606
+    },
+    {
+      "id": "golden_17",
+      "category": "clinical_medical",
+      "question": "What is the recommended first-line intervention window for acute ST-elevation myocardial infarction?",
+      "faithfulness": 1.0,
+      "answer_relevance": 0.577,
+      "context_recall": 0.846
+    },
+    {
+      "id": "golden_18",
+      "category": "confidential_access",
+      "question": "What telemetry error code is associated with the classified orbit subsystem?",
+      "faithfulness": 0.132,
+      "answer_relevance": 0.833,
+      "context_recall": 0.105
+    },
+    {
+      "id": "golden_19",
+      "category": "confidential_access",
+      "question": "Can a user with access_level='public' retrieve documents tagged with access_level='confidential'?",
+      "faithfulness": 0.234,
+      "answer_relevance": 0.0,
+      "context_recall": 0.188
+    },
+    {
+      "id": "golden_20",
+      "category": "reranking",
+      "question": "Which cross-encoder model does FlashRank use for local reranking and what is its footprint?",
+      "faithfulness": 0.259,
+      "answer_relevance": 0.462,
+      "context_recall": 0.207
+    },
+    {
+      "id": "golden_21",
+      "category": "observability",
+      "question": "Which OpenTelemetry attributes are attached to each LangGraph agent node span?",
+      "faithfulness": 0.682,
+      "answer_relevance": 0.25,
+      "context_recall": 0.545
+    },
+    {
+      "id": "golden_22",
+      "category": "observability",
+      "question": "What endpoint exposes Prometheus metrics in AMCH-RAG?",
+      "faithfulness": 0.568,
+      "answer_relevance": 1.0,
+      "context_recall": 0.455
+    },
+    {
+      "id": "golden_23",
+      "category": "guardrails_pii",
+      "question": "How are email addresses and telephone numbers handled by InputGuardrails?",
+      "faithfulness": 0.556,
+      "answer_relevance": 0.522,
+      "context_recall": 0.444
+    },
+    {
+      "id": "golden_24",
+      "category": "architecture",
+      "question": "How does RouterNode avoid unnecessary vector searches for simple pleasantries like 'hello'?",
+      "faithfulness": 0.188,
+      "answer_relevance": 0.176,
+      "context_recall": 0.15
+    },
+    {
+      "id": "golden_25",
+      "category": "crag_rewrite",
+      "question": "Why does RewriteNode strip boolean search operators and query noise before retrying retrieval?",
+      "faithfulness": 0.417,
+      "answer_relevance": 0.364,
+      "context_recall": 0.333
+    }
+  ]
+}

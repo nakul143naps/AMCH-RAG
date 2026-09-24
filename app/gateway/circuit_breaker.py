@@ -2,8 +2,17 @@
 
 import logging
 import time
+from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+
+class CircuitState(str, Enum):
+    """Enumeration of circuit breaker operational states."""
+
+    CLOSED = "CLOSED"
+    OPEN = "OPEN"
+    HALF_OPEN = "HALF_OPEN"
 
 
 class CircuitBreaker:
@@ -26,7 +35,7 @@ class CircuitBreaker:
         self.cooldown_seconds = cooldown_seconds
 
         self.consecutive_failures: int = 0
-        self.state: str = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
+        self.state: CircuitState = CircuitState.CLOSED
         self.last_failure_time: float = 0.0
 
     def can_execute(self) -> bool:

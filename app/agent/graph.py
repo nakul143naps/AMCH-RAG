@@ -22,6 +22,7 @@ from app.agent.nodes import (
 )
 from app.agent.state import AgentState
 from app.config import get_settings
+from app.observability import wrap_traced_node
 
 logger = logging.getLogger(__name__)
 
@@ -150,19 +151,19 @@ def build_agent_graph(
 
     workflow = StateGraph(AgentState)
 
-    # 1. Register Graph Nodes
-    workflow.add_node("input_guardrails", input_guardrails)
-    workflow.add_node("router", router)
-    workflow.add_node("cache_lookup", cache)
-    workflow.add_node("memory", memory)
-    workflow.add_node("retrieve", retrieve)
-    workflow.add_node("rerank", rerank)
-    workflow.add_node("grade", grader)
-    workflow.add_node("rewrite", rewriter)
-    workflow.add_node("web_search", web_search)
-    workflow.add_node("generate", generate)
-    workflow.add_node("groundedness_check", groundedness)
-    workflow.add_node("output_guardrails", output_guardrails)
+    # 1. Register Graph Nodes (Instrumented with OpenTelemetry & Metrics)
+    workflow.add_node("input_guardrails", wrap_traced_node("input_guardrails", input_guardrails))
+    workflow.add_node("router", wrap_traced_node("router", router))
+    workflow.add_node("cache_lookup", wrap_traced_node("cache_lookup", cache))
+    workflow.add_node("memory", wrap_traced_node("memory", memory))
+    workflow.add_node("retrieve", wrap_traced_node("retrieve", retrieve))
+    workflow.add_node("rerank", wrap_traced_node("rerank", rerank))
+    workflow.add_node("grade", wrap_traced_node("grade", grader))
+    workflow.add_node("rewrite", wrap_traced_node("rewrite", rewriter))
+    workflow.add_node("web_search", wrap_traced_node("web_search", web_search))
+    workflow.add_node("generate", wrap_traced_node("generate", generate))
+    workflow.add_node("groundedness_check", wrap_traced_node("groundedness_check", groundedness))
+    workflow.add_node("output_guardrails", wrap_traced_node("output_guardrails", output_guardrails))
 
     # 2. Define Directed Flow & Conditional Branches
     # Start -> Input Guardrails

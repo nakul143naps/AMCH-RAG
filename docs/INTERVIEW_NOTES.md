@@ -166,7 +166,18 @@ flowchart TD
   - *Challenge 1 (Cascade Latency & Thundering Herd on Dead Provider)*: When an upstream provider is hard-down, attempting requests with timeouts on every user call adds 10–30s of latency before falling over.
   - *Solution*: `CircuitBreaker` immediately fast-fails calls to a tripped provider in <1ms without network calls. After cooldown expires, it enters `HALF_OPEN` to permit a single canary probe: if successful, it resets to `CLOSED`; if failed, it trips back to `OPEN`.
   - *Challenge 2 (Transient Glitches vs Provider Outages)*: A single socket blip or 503 shouldn't instantly fail over the entire fleet.
-  - *Solution*: Exponential backoff retry inside each provider before incrementing the failure count. Only consecutive unrecoverable errors trip the breaker.
+### Step 13: Observability, Prometheus Metrics & Golden Evaluation (Phase 12)
+- **Goal**: Provide production-grade distributed tracing with OpenTelemetry, Prometheus metrics exposition for Prometheus/Grafana dashboards, Langfuse LLM accounting, and an offline/online evaluation harness.
+- **Key Decision**:
+  - OpenTelemetry Spans: Dynamically wrapped all 12 LangGraph nodes via `wrap_traced_node`, threading `trace_id` through `AgentState` and recording node latency, route decisions, cache hits, and groundedness scores as span attributes without invasively altering node class implementations.
+  - Prometheus Metrics: Exposed standard metrics via `GET /metrics` (`rag_cache_requests_total`, `rag_crag_rewrites_total`, `rag_crag_web_fallbacks_total`, `rag_groundedness_checks_total`, `rag_gateway_calls_total`, `rag_gateway_failovers_total`, `rag_circuit_breaker_tripped_total`, and latency histograms).
+  - Langfuse Tracing: Wired `LangfuseTracer` singleton recording model generation events, input/output prompts, token costs, and latencies with safe zero-dependency fallback when credentials are not configured.
+  - Golden Dataset & Eval Harness: Hand-crafted 25 multi-modal and multi-domain test cases in `evals/golden_dataset.json` with an evaluation runner (`evals/evaluate.py`) scoring Faithfulness, Answer Relevance, and Context Recall.
+- **Difficulties Faced**:
+  - *Challenge 1 (Circular Dependency Trap in Tracing)*: `ModelGateway` imports `wrap_traced_node` from `app.observability`, while `app.observability.tracer` needed `AgentState` from `app.agent.state`, which imported `ModelGateway` for generation nodes.
+  - *Solution*: Decoupled node state typing in `tracer.py` using `Any` for runtime execution and isolated telemetry primitives from graph construction.
+  - *Challenge 2 (Zero-Cost / Offline CI Resilience for Tracing)*: If OpenTelemetry or Langfuse exporters require live remote collectors, local tests or offline environments crash on startup.
+  - *Solution*: Graceful no-op mock fallback. If `OTEL_EXPORTER_OTLP_ENDPOINT` or `LANGFUSE_PUBLIC_KEY` are unset, tracers execute in-memory with zero network calls and 0ms overhead.
 
 ---
 
@@ -603,6 +614,35 @@ class ModelGateway:
                 provider.circuit_breaker.record_failure()
                 continue
         raise AllProvidersExhaustedError("All providers exhausted")
+```
+
+---
+
+### Component 16: OpenTelemetry Distributed Node Tracing & Prometheus Metrics Pipeline
+> **Interview Question**: *"How do you trace complex cyclical LangGraph workflows in production and monitor LLM costs and errors?"*  
+> **Answer**: *"We separate operational metrics into three synergistic layers:  
+> 1. Distributed Spans: Every incoming query generates an immutable `trace_id` threaded through `AgentState`. We use a non-invasive wrapper `wrap_traced_node(node_name, callable)` that opens an OpenTelemetry span `node.<name>` around every node execution without modifying node class logic. Spans record node latency, route selections, cache outcomes, groundedness scores, and exceptions.  
+> 2. Real-Time Prometheus Exposition: At `GET /metrics`, the system exports counters and histograms tracking cache hits vs misses by tier (`rag_cache_requests_total`), CRAG correction attempts (`rag_crag_rewrites_total`), web fallbacks, groundedness distributions, provider failover counters, and p95 latency histograms.  
+> 3. LLM Observability & Cost Tracking: `ModelGateway` hooks into `LangfuseTracer`. For every model call, it streams the exact prompt, completion, latency, model ID, and trace ID to Langfuse for visual cost analysis and regression detection, falling back silently when running offline or in unit tests."*
+
+```python
+# app/observability/tracer.py
+def wrap_traced_node(node_name: str, node_callable: Any) -> Callable:
+    @functools.wraps(node_callable)
+    async def traced_node_wrapper(state: Any) -> dict[str, Any]:
+        tracer = get_tracer()
+        with tracer.start_as_current_span(f"node.{node_name}") as span:
+            span.set_attribute("app.trace_id", state.get("trace_id", "unknown"))
+            span.set_attribute("app.node", node_name)
+            result = await node_callable(state)
+            record_node_latency(node_name, duration)
+            return result
+    return traced_node_wrapper
+
+# app/api/routes_metrics.py
+@router.get("/metrics")
+async def get_metrics() -> Response:
+    return Response(content=get_metrics_exposition(), media_type=CONTENT_TYPE_LATEST)
 ```
 
 ---
