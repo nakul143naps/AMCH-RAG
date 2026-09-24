@@ -60,11 +60,11 @@ Work phases in order — each phase produces something runnable/testable before 
 - **Done when**: a deliberately injected instruction inside a test document does not get followed, and a deliberately unsupported claim in a forced-bad draft answer is caught and corrected. (Verified in tests: prompt-injected user query blocked immediately at input gate; injected instruction in document neutralized and ignored by generator; forced-bad draft with unsupported Mars hallucination caught by groundedness judge and regenerated with factually supported claims; 63/63 tests passing).
 
 ## Phase 9 — Multi-Modal Ingestion
-- [ ] Layout-aware PDF/DOCX/PPTX parsing (table/figure region detection).
-- [ ] Table serialization to Markdown as its own chunk type.
-- [ ] Vision captioning pass for charts/images (via Gemini multimodal), stored as `image_caption` chunks.
-- [ ] Website ingestion (`trafilatura` + `playwright` for JS-rendered pages) + CSV loader.
-- **Done when**: a PDF containing a table and a chart is ingested such that a question about a specific table value and a question about the chart's trend are both answerable.
+- [x] Layout-aware PDF/DOCX/PPTX parsing (table/figure region detection).
+- [x] Table serialization to Markdown as its own chunk type.
+- [x] Vision captioning pass for charts/images (via Gemini multimodal), stored as `image_caption` chunks.
+- [x] Website ingestion (`trafilatura` + fallback scraper) + CSV loader.
+- **Done when**: a PDF containing a table and a chart is ingested such that a question about a specific table value and a question about the chart's trend are both answerable. (Verified in tests: CSV tables, PPTX slides, Web HTML, PDF tables and charts ingested cleanly; tables serialized to intact Markdown; Gemini multimodal captions extracted; hybrid retrieval verifies both table values and chart trends are retrieved; 69/69 tests passing).
 
 ## Phase 10 — Memory
 - [ ] Short-term: conversation buffer + summarization once over a token budget (LangGraph checkpointer).

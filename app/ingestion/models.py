@@ -61,3 +61,10 @@ class IngestJob(BaseModel):
     error: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
+
+
+class IngestUrlRequest(BaseModel):
+    """Request model for URL / website ingestion."""
+
+    url: str = Field(..., min_length=1, description="Website or article URL to ingest")
+    access_level: str = Field(default="default", description="Access level for tenant filtering")

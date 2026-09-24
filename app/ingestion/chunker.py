@@ -33,7 +33,6 @@ class SemanticChunker:
 
     def _split_text(self, text: str, separators: list[str]) -> list[str]:
         """Recursively split text using the first matching separator."""
-        final_chunks: list[str] = []
         separator = separators[-1]
         new_separators = []
 
@@ -119,6 +118,26 @@ class SemanticChunker:
             if not text:
                 continue
 
+            # Tables and image captions are preserved whole without arbitrary splitting
+            if part.modality in ("table", "image_caption"):
+                chunk = ChunkPayload(
+                    doc_id=doc_id,
+                    doc_version=doc_version,
+                    source=source,
+                    source_type=source_type,  # type: ignore
+                    modality=part.modality,
+                    section=part.section,
+                    page=part.page,
+                    chunk_index=chunk_idx,
+                    access_level=access_level,
+                    ingested_at=now,
+                    content=text,
+                )
+                chunks.append(chunk)
+                chunk_idx += 1
+                continue
+
+            # Body prose is split boundary-aware
             sub_chunks = self._split_text(text, self.separators)
             for sub_text in sub_chunks:
                 clean_text = sub_text.strip()

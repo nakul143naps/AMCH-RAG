@@ -134,6 +134,18 @@ flowchart TD
   - *Challenge 3 (Self-RAG Groundedness Loop Bounding)*: If an LLM continually hallucinates on an impossible question, a naive regeneration loop cycles forever.
   - *Solution*: Counter `groundedness_retries` bounded by `MAX_GROUNDEDNESS_RETRIES = 2`. If retries are exhausted, the graph falls back gracefully: appends a clear advisory caution header (`"[Caution: Portions of this response could not be fully verified against internal documents]"`) and passes to output guardrails.
 
+### Step 10: Multi-Modal Ingestion, Table Serialization & Vision Captioning (Phase 9)
+- **Goal**: Enable layout-aware ingestion of documents containing structured tables (CSV, DOCX, PDF, PPTX, HTML) and embedded charts/figures, indexing them with explicit modality flags and Gemini Multimodal vision captions.
+- **Key Decision**:
+  - Tables are serialized to GitHub-flavored Markdown (`serialize_rows_to_markdown`, `detect_and_format_text_table`) and stored as intact chunks with `modality="table"`.
+  - Embedded figures/charts in PDFs are extracted as raw bytes and analyzed through `VisionCaptioner` leveraging Gemini Multimodal (`google-genai` `types.Part.from_bytes`) to generate dense factual descriptions (figure type, numerical metrics, trends, and searchable captions) stored as `modality="image_caption"`.
+  - Added direct URL scraping (`POST /ingest/url`) via `trafilatura` with fallback parser.
+- **Difficulties Faced**:
+  - *Challenge 1 (Table Fragmentation in Sentence Chunkers)*: Standard recursive chunkers split text on periods, commas, or line breaks. When applied to tables, rows and columns become separated across different chunks, completely destroying the semantic association between column headers and row values.
+  - *Solution*: Modality-aware chunking. In `SemanticChunker`, parts tagged with `modality="table"` or `modality="image_caption"` bypass sentence-splitting entirely and are emitted as discrete, whole chunks.
+  - *Challenge 2 (Offline & Test Resilience for Vision API)*: Calling Gemini Multimodal during automated test suites or offline operation introduces flakiness, latency, and API key dependencies.
+  - *Solution*: `VisionCaptioner` inspects image dimensions and format via PIL, checks `GEMINI_API_KEY`, and falls back to a structured metadata caption if offline or during tests, while supporting full multimodal extraction in production.
+
 ---
 
 ## 3. Core Components & Code Snippets (For Explaining in Interviews)
@@ -479,6 +491,35 @@ def groundedness_decision(state: AgentState) -> Literal["output_guardrails", "ge
     if retries < MAX_GROUNDEDNESS_RETRIES and state.get("groundedness_feedback"):
         return "generate"  # Cyclical regeneration
     return "output_guardrails"
+```
+
+---
+
+### Component 13: Layout-Aware Table Serialization & Multimodal Vision Captioning
+> **Interview Question**: *"How does AMCH-RAG index and search tables and charts without losing their structural semantics?"*  
+> **Answer**: *"We treat tabular and visual modalities as first-class citizens:  
+> 1. Table Serialization: Ingested tables from CSV, DOCX, PPTX, or PDF are converted to standard GitHub-flavored Markdown matrices. In the chunker, tables are preserved whole as `modality='table'` chunks, ensuring headers and row values never get fragmented across chunk boundaries.  
+> 2. Multimodal Vision Captioning: Extracted images, charts, and diagrams from PDFs are passed to Gemini Multimodal (`google-genai` `types.Part.from_bytes`). Gemini extracts figure types, explicit data points, percentages, axis categories, and trends. These are indexed into Qdrant as searchable `modality='image_caption'` chunks, making complex charts discoverable via both semantic dense search and keyword BM25 queries."*
+
+```python
+# app/ingestion/tables.py
+def serialize_rows_to_markdown(headers: list[str], rows: list[list[str]]) -> str:
+    # Emits clean GFM table:
+    # | Quarter | Revenue | Growth |
+    # | --- | --- | --- |
+    # | Q1 | $10M | +15% |
+    ...
+
+# app/ingestion/vision.py
+class VisionCaptioner:
+    def _sync_caption_image(self, image_bytes: bytes, mime_type: str, context_hint: str) -> str:
+        prompt = VISION_PROMPT.format(context_hint=context_hint)
+        image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
+        response = client.models.generate_content(
+            model=self.settings.GEMINI_GENERATION_MODEL,
+            contents=[prompt, image_part]
+        )
+        return response.text.strip()
 ```
 
 ---

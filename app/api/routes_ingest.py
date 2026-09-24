@@ -1,5 +1,6 @@
-"""API endpoints for document ingestion and job status tracking."""
+"""API endpoints for document ingestion, web scraping, and job status tracking."""
 
+import logging
 import os
 import shutil
 import uuid
@@ -15,19 +16,23 @@ from fastapi import (
     status,
 )
 
-from app.ingestion.models import IngestJob
+from app.ingestion.models import IngestJob, IngestUrlRequest
 from app.ingestion.pipeline import IngestionPipeline, JobStore
 from app.retrieval.vector_store import VectorStoreManager
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ingest", tags=["Ingestion"])
 job_store = JobStore.get_instance()
 UPLOAD_DIR = Path("./data/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+ALLOWED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".pptx", ".csv", ".html", ".htm"}
+
 
 def _process_file_background(
     job_id: str, temp_path: Path, filename: str, access_level: str
-):
+) -> None:
     """Background task function to process file and update job state."""
     pipeline = IngestionPipeline()
     job_store.update_job(job_id=job_id, status="processing")
@@ -43,7 +48,8 @@ def _process_file_background(
             doc_id=doc.doc_id,
             total_chunks=len(doc.chunks),
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"Ingest job {job_id} failed: {e}")
         job_store.update_job(job_id=job_id, status="failed", error=str(e))
     finally:
         # Cleanup temporary upload file
@@ -54,19 +60,36 @@ def _process_file_background(
                 pass
 
 
+def _process_url_background(job_id: str, url: str, access_level: str) -> None:
+    """Background task function to scrape, chunk, and ingest a web URL."""
+    pipeline = IngestionPipeline()
+    job_store.update_job(job_id=job_id, status="processing")
+    try:
+        doc = pipeline.process_url(url=url, access_level=access_level)
+        job_store.update_job(
+            job_id=job_id,
+            status="completed",
+            doc_id=doc.doc_id,
+            total_chunks=len(doc.chunks),
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"URL ingest job {job_id} failed: {e}")
+        job_store.update_job(job_id=job_id, status="failed", error=str(e))
+
+
 @router.post("", status_code=status.HTTP_202_ACCEPTED, response_model=IngestJob)
 async def ingest_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     access_level: str = Form(default="default"),
 ) -> IngestJob:
-    """Upload a document file (TXT, MD, PDF, DOCX) for asynchronous ingestion into Qdrant."""
+    """Upload a document file (TXT, MD, PDF, DOCX, PPTX, CSV, HTML) for asynchronous ingestion into Qdrant."""
     filename = file.filename or "unknown.txt"
     ext = Path(filename).suffix.lower()
-    if ext not in [".txt", ".md", ".pdf", ".docx"]:
+    if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file type '{ext}'. Allowed types: .txt, .md, .pdf, .docx",
+            detail=f"Unsupported file type '{ext}'. Allowed types: {sorted(ALLOWED_EXTENSIONS)}",
         )
 
     job_id = str(uuid.uuid4())
@@ -83,6 +106,25 @@ async def ingest_document(
         temp_path=temp_file_path,
         filename=filename,
         access_level=access_level,
+    )
+
+    return job
+
+
+@router.post("/url", status_code=status.HTTP_202_ACCEPTED, response_model=IngestJob)
+async def ingest_url(
+    background_tasks: BackgroundTasks,
+    request: IngestUrlRequest,
+) -> IngestJob:
+    """Scrape and ingest an external website or article by URL."""
+    job_id = str(uuid.uuid4())
+    job = job_store.create_job(job_id=job_id, filename=request.url)
+
+    background_tasks.add_task(
+        _process_url_background,
+        job_id=job_id,
+        url=request.url,
+        access_level=request.access_level,
     )
 
     return job

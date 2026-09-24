@@ -61,9 +61,11 @@ def test_docx_loader(tmp_path: Path):
     loader = DocxLoader()
     parts = loader.load(file_path)
 
-    assert len(parts) == 1
+    assert len(parts) == 2
+    assert parts[0].modality == "text"
     assert "First paragraph" in parts[0].content
-    assert "Key | Value" in parts[0].content
+    assert parts[1].modality == "table"
+    assert "Key | Value" in parts[1].content
 
 
 def test_pdf_loader(tmp_path: Path):
