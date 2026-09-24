@@ -15,6 +15,13 @@ Cite each factual claim with the source marker [n] matching the corresponding nu
 If the context does not contain enough information to answer the question, state clearly that the knowledge base does not contain the answer.
 Do not invent information or make claims not supported by the context."""
 
+WEB_SYSTEM_INSTRUCTION = """You are a precise, grounded assistant.
+Note: The internal knowledge base did not contain sufficient information, so the following context was retrieved via external web search fallback.
+Synthesize an answer using ONLY the provided web context passages.
+Clearly state that this information is sourced from external web search.
+Cite each factual claim with [n] matching the corresponding numbered web passage.
+Do not invent information or extrapolate beyond the provided web sources."""
+
 
 class GenerateNode:
     """Synthesizes answers grounded in retrieved passages with verifiable citations."""
@@ -69,12 +76,20 @@ class GenerateNode:
         trace_id = state.get("trace_id", "")
         access_level = state.get("access_level", "default")
 
+        is_web_sourced = bool(state.get("web_results")) or any(
+            c.doc_id == "web_search" or (c.metadata and c.metadata.get("source_type") == "web")
+            for c in chunks
+        )
+
         # Zero-token guard for empty retrieval
         if not chunks:
             logger.info(
                 "GenerateNode received 0 chunks -> returning zero-context fallback"
             )
-            no_info_msg = "I could not find any relevant information in the knowledge base to answer your question."
+            if state.get("web_results") is not None:
+                no_info_msg = "I could not find any relevant information in the internal knowledge base or external web search to answer your question."
+            else:
+                no_info_msg = "I could not find any relevant information in the knowledge base to answer your question."
             return {
                 "draft_answer": no_info_msg,
                 "final_answer": no_info_msg,
@@ -85,15 +100,18 @@ class GenerateNode:
         # Format context and citations
         context_text, citations = self._format_context(chunks)
         prompt = f"Context passages:\n{context_text}\n\nQuestion: {query}\n\nAnswer:"
+        instruction = WEB_SYSTEM_INSTRUCTION if is_web_sourced else SYSTEM_INSTRUCTION
 
-        logger.info(f"GenerateNode invoking LLM gateway for query: '{query}'")
+        logger.info(f"GenerateNode invoking LLM gateway for query: '{query}' (web_sourced: {is_web_sourced})")
         answer_text, provider_used = await self.gateway.generate(
             prompt=prompt,
             purpose="generation",
-            system_instruction=SYSTEM_INSTRUCTION,
+            system_instruction=instruction,
         )
 
         clean_answer = answer_text.strip()
+        if is_web_sourced and not clean_answer.lower().startswith(("[web", "(web", "web-sourced")):
+            clean_answer = f"[Web-Sourced Answer]\n{clean_answer}"
 
         # Cache write-through to Two-Tier Cache (exact SHA-256 + semantic vector index)
         doc_ids = list({c.doc_id for c in chunks})

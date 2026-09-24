@@ -12,6 +12,7 @@ from app.agent.nodes.generate import GenerateNode
 from app.agent.nodes.rerank import RerankNode
 from app.agent.nodes.retrieve import RetrieveNode
 from app.agent.nodes.router import RouterNode
+from app.agent.nodes.web_search import WebSearchNode
 from app.agent.service import AgentService
 from app.agent.state import create_initial_state
 from app.cache.manager import CacheManager, SQLiteCache
@@ -325,11 +326,15 @@ async def test_graph_empty_retrieval_guard():
     mock_gateway = AsyncMock()
     mock_gateway.generate.return_value = ("ROUTE: retrieve", "gemini")
 
+    mock_web_tool = AsyncMock()
+    mock_web_tool.async_search.return_value = []
+
     graph = build_agent_graph(
         router_node=RouterNode(gateway=mock_gateway),
         cache_node=CacheLookupNode(),
         retrieve_node=RetrieveNode(retriever=mock_retriever),
         rerank_node=RerankNode(),
+        web_search_node=WebSearchNode(tool=mock_web_tool),
         generate_node=GenerateNode(gateway=mock_gateway),
     )
 

@@ -18,7 +18,7 @@ class RerankNode:
     async def __call__(self, state: AgentState) -> dict[str, Any]:
         """Rerank candidates down to top-k high precision chunks."""
         chunks = state.get("retrieved_docs", [])
-        query = state.get("query", "").strip()
+        query = (state.get("rewritten_query") or state.get("query", "")).strip()
 
         if not chunks:
             logger.info("RerankNode received 0 chunks, passing through")

@@ -108,6 +108,17 @@ flowchart TD
   - *Challenge 3 (Dead-End & Infinite Loop Prevention)*: Dynamic graph branches must never land on dead ends or loop unboundedly.
   - *Solution*: Built deterministic conditional edge evaluators (`route_decision`, `cache_decision`) with bounded fallbacks to `"retrieve"` and terminal exit to `END` on cache hit, guaranteeing deterministic termination.
 
+### Step 8: Corrective RAG (CRAG) with Query Rewriting & Web Fallback (Phase 7)
+- **Goal**: Implement Corrective RAG (CRAG) to grade retrieved chunk relevance, trigger bounded query reformulations when retrieval is insufficient, and fall back to live web search when out-of-corpus questions are asked.
+- **Key Decision**: Built `GradeNode` (per-chunk LLM-as-judge relevance classification), `RewriteNode` (query optimizer incrementing `correction_attempts`), and `WebSearchNode` (DuckDuckGo search fallback with multi-backend resilience). Wired into LangGraph with bounded cyclical edge `crag_decision`.
+- **Difficulties Faced**:
+  - *Challenge 1 (Silent Hallucinations on Weak Context)*: Naive RAG forces the generator to synthesize an answer from whatever was retrieved. When documents are irrelevant, the model either hallucinates or produces evasive output.
+  - *Solution*: `GradeNode` evaluates each chunk's relevance concurrently into `relevant`, `ambiguous`, or `irrelevant`. Irrelevant chunks are discarded. If zero relevant chunks remain, the workflow halts generation and diverts to corrective action.
+  - *Challenge 2 (Infinite Graph Looping Prevention)*: A cyclic edge from `rewrite -> retrieve -> rerank -> grade -> rewrite` risks spinning forever if a query cannot match documents in the corpus.
+  - *Solution*: Enforced strict state bounds: `correction_attempts` counter is embedded in `AgentState`. `crag_decision` evaluates `attempts < MAX_CORRECTION_ATTEMPTS` (default 2). Once exhausted, it deterministically breaks the cycle and routes to `web_search`.
+  - *Challenge 3 (Distinguishing Internal vs Web Knowledge)*: Users must never confuse verified company knowledge with open-web search results.
+  - *Solution*: Web-sourced chunks are tagged with `doc_id="web_search"` and `source_type="web"`. When generating, `GenerateNode` uses `WEB_SYSTEM_INSTRUCTION` and prefixes the final answer with `[Web-Sourced Answer]` while emitting verified URL citations.
+
 ---
 
 ## 3. Core Components & Code Snippets (For Explaining in Interviews)
@@ -385,6 +396,43 @@ workflow.add_edge("rerank", "generate")
 workflow.add_edge("generate", END)
 
 app_graph = workflow.compile()
+```
+
+---
+
+### Component 11: Corrective RAG (CRAG) Grader, Query Rewriter & Web Fallback
+> **Interview Question**: *"How does Corrective RAG work in your system, and how do you guarantee it never loops infinitely?"*  
+> **Answer**: *"CRAG introduces an active evaluation and recovery loop into retrieval. Rather than passing all retrieved passages directly to generation, our `GradeNode` grades each chunk's relevance concurrently using a structured LLM-as-judge prompt into `relevant`, `ambiguous`, or `irrelevant`.  
+> If relevant chunks exist, purely irrelevant noise is filtered out and generation proceeds.  
+> If all chunks are irrelevant or ambiguous:  
+> 1. `RewriteNode` reformulates the query using domain terminology and increments the `correction_attempts` counter in `AgentState`.  
+> 2. The cyclic edge routes back to `retrieve` to attempt higher-recall search.  
+> 3. Termination is strictly bounded: Once `correction_attempts >= MAX_CORRECTION_ATTEMPTS` (default 2), the conditional edge evaluator `crag_decision` deterministically breaks the cycle and routes to `web_search`.  
+> 4. `WebSearchNode` queries DuckDuckGo, labels the answer explicitly as `[Web-Sourced Answer]`, and produces web citations, avoiding silent hallucination."*
+
+```python
+# app/agent/graph.py
+def crag_decision(state: AgentState) -> Literal["generate", "rewrite", "web_search"]:
+    max_attempts = settings.MAX_CORRECTION_ATTEMPTS
+    attempts = state.get("correction_attempts", 0)
+    docs = state.get("retrieved_docs", [])
+
+    if docs:
+        return "generate"
+    if attempts < max_attempts:
+        return "rewrite"
+    if settings.ENABLE_WEB_SEARCH_FALLBACK:
+        return "web_search"
+    return "generate"
+
+# Conditional edge from grade node
+workflow.add_conditional_edges(
+    "grade",
+    crag_decision,
+    {"generate": "generate", "rewrite": "rewrite", "web_search": "web_search"}
+)
+workflow.add_edge("rewrite", "retrieve")   # Cyclical retry loop
+workflow.add_edge("web_search", "generate") # Web fallback to generator
 ```
 
 ---

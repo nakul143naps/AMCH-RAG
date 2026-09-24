@@ -47,10 +47,10 @@ Work phases in order — each phase produces something runnable/testable before 
 - **Done when**: a greeting or already-cached question skips retrieval entirely (verified via trace), and a knowledge-base question still retrieves correctly. (Verified in tests: greetings and cached queries bypass retrieval, knowledge-base questions retrieve, rerank, and synthesize with citations).
 
 ## Phase 7 — Corrective RAG (CRAG)
-- [ ] Grader node (per-chunk relevance grading).
-- [ ] Query rewriter node + retry edge (bounded by `MAX_CORRECTION_ATTEMPTS`).
-- [ ] Web search fallback tool (pick a provider — free-tier search API is fine for v1) + clearly-labeled web-sourced answers.
-- **Done when**: a deliberately hard/ambiguous query triggers a rewrite-and-retry, visible in the trace, and an out-of-corpus query correctly falls back to web search rather than hallucinating.
+- [x] Grader node (per-chunk relevance grading).
+- [x] Query rewriter node + retry edge (bounded by `MAX_CORRECTION_ATTEMPTS`).
+- [x] Web search fallback tool (DuckDuckGo search free-tier fallback with multi-backend resilience) + clearly-labeled web-sourced answers.
+- **Done when**: a deliberately hard/ambiguous query triggers a rewrite-and-retry, visible in the trace, and an out-of-corpus query correctly falls back to web search rather than hallucinating. (Verified in tests: ambiguous/irrelevant queries trigger bounded rewrite loop; out-of-corpus queries fall back to web search returning `[Web-Sourced Answer]` with web citations; 53/53 tests passing).
 
 ## Phase 8 — Self-RAG / Groundedness + Guardrails
 - [ ] Groundedness check node (separate LLM-as-judge call, per `DESIGN.md` §4).

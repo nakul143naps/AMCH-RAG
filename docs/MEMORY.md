@@ -3,7 +3,7 @@
 This file is the project's running memory. Whoever (or whatever) is implementing this — update it after every phase in `TASKS.md`, and any time a decision deviates from `ARCHITECTURE.md`/`DESIGN.md`. Keep entries dated and short. Don't delete old entries — append.
 
 ## Project State
-**Current phase**: Phase 7 — Corrective RAG (CRAG). Phase 6 complete.
+**Current phase**: Phase 8 — Self-RAG / Groundedness + Guardrails. Phase 7 complete.
 
 ## Key Decisions Log
 
@@ -17,6 +17,7 @@ This file is the project's running memory. Whoever (or whatever) is implementing
 | Spec creation | Two-tier cache: exact (Redis, normalized query hash) + semantic (embedding similarity, threshold configurable) | Directly answers the "already answered / similar question" requirement from the brief |
 | Spec creation | Web search fallback only triggers after CRAG correction attempts are exhausted, and is explicitly labeled as web-sourced | Keeps knowledge-base answers and open-web answers distinguishable to the user |
 | Phase 0 Setup | Prioritize Gemini AI Pro capabilities + 100% free/local/open-source tooling | User directive: ensure database, cache, fallbacks, and tools are free/local (embedded Qdrant + local SQLite cache fallback + free DuckDuckGo search + Groq/OpenRouter free tiers), while leveraging Gemini AI Pro as the primary model |
+| Phase 7 Decision | DuckDuckGo search via `duckduckgo_search` with multi-backend fallbacks (`lite` -> `html` -> `news`) | 100% free and zero API-key dependencies for external web search, avoiding paid SerpAPI/Tavily dependencies while maintaining reliable web fallback |
 
 ## Config / Model Names to Re-Verify Before Building
 Provider free tiers and model catalogs move fast. At build time (not spec time), re-check and update `.env` accordingly — don't trust the exact model ID strings below without a fresh check:
@@ -27,7 +28,7 @@ Provider free tiers and model catalogs move fast. At build time (not spec time),
 
 ## Known Open Questions (from `PRD.md` §10)
 - [ ] Exact chunk sizes/overlap per content type — tune against eval results once Phase 12 eval harness exists.
-- [ ] Web-search provider for CRAG fallback — decide during Phase 7.
+- [x] Web-search provider for CRAG fallback — DuckDuckGo search with multi-backend fallback selected and implemented in Phase 7.
 - [ ] Whether a lightweight web UI ships in v1.
 
 - _Phase 4 Reranker Engine_: Swapped local reranker implementation from raw FastEmbed to FlashRank (`ms-marco-TinyBERT-L-2-v2`). FlashRank provides ultra-lightweight ONNX-quantized models (~3MB) with sub-10ms CPU inference and zero PyTorch/GPU dependencies, avoiding heavy wheel downloads on Windows while maintaining high-quality cross-attention.
@@ -45,3 +46,4 @@ Provider free tiers and model catalogs move fast. At build time (not spec time),
 - _Phase 4 completed_: Local cross-encoder reranker implemented and verified. Built `RerankerService` leveraging FlashRank ONNX (`ms-marco-TinyBERT-L-2-v2`). Wired into two-stage retrieval (top-$N$ candidate prefetch $\to$ cross-attention scoring $\to$ top-$k$ output). Created comparative evaluation benchmark demonstrating measurable Top-1 precision improvement over keyword distractor traps. 27/27 tests passing.
 - _Phase 5 completed_: Two-Tier Caching implemented and verified. Built `TwoTierCacheService` combining Tier 1 Exact normalized query hash (<5ms) and Tier 2 Semantic vector cache in Qdrant ($\ge 0.90$ cosine similarity) with reverse document invalidation hooks and multi-tenant isolation. Integrated into `BaselineRAGService`. 34/34 tests passing.
 - _Phase 6 completed_: Agentic Orchestration with LangGraph implemented and verified. Created `AgentState` schema per `DESIGN.md` §3, `RouterNode` with fast-path greeting heuristic + LLM classification with graceful fallback, `CacheLookupNode`, `RetrieveNode`, `RerankNode`, and `GenerateNode`. Assembled compiled `StateGraph` with conditional branches allowing greetings and cached queries to bypass retrieval completely while routing factual queries through hybrid search, reranking, and generation with verifiable citations. High-level `AgentService` built. Full test suite passing 45/45 tests in ~15s with zero ruff lint errors.
+- _Phase 7 completed_: Corrective RAG (CRAG) implemented and verified. Built `GradeNode` for concurrent per-chunk relevance scoring (LLM-as-judge: relevant, ambiguous, irrelevant) and filtering. Built `RewriteNode` reformulating queries to improve retrieval recall with bounded retry edge (`MAX_CORRECTION_ATTEMPTS = 2`). Built `WebSearchTool` and `WebSearchNode` using DuckDuckGo search (`lite` -> `html` -> `news`) for zero-cost open-web fallback when internal corpus is insufficient. Updated `GenerateNode` and graph conditional edges to label web-sourced answers explicitly (`[Web-Sourced Answer]`) with structured web citations. Full test suite passing 53/53 tests with zero lint errors.

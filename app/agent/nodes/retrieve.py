@@ -17,7 +17,7 @@ class RetrieveNode:
 
     async def __call__(self, state: AgentState) -> dict[str, Any]:
         """Retrieve candidate document chunks matching the query and tenant filters."""
-        query = state.get("query", "").strip()
+        query = (state.get("rewritten_query") or state.get("query", "")).strip()
         access_level = state.get("access_level", "default")
 
         logger.info(f"RetrieveNode searching for: '{query}' (tenant: {access_level})")
