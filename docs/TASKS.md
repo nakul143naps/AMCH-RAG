@@ -72,12 +72,12 @@ Work phases in order — each phase produces something runnable/testable before 
 - **Done when**: a fact stated by the user in one session is correctly recalled in a later session. (Verified in tests: `ShortTermMemoryManager` compresses dialogue over budget; `UserMemoryService` extracts and stores facts in Qdrant with tenant isolation; `MemoryNode` injects memory into `GenerateNode`; cross-session test proves fact stated in session 1 is recalled and incorporated into session 2 without repetition; 75/75 tests passing).
 
 ## Phase 11 — Multi-Provider Model Gateway
-- [ ] Gateway interface (`generate`, `grade`, `route`, `check_groundedness`, `rewrite_query` — each tagged with a "purpose" per `RULES.md` §4).
-- [ ] Gemini adapter (primary).
-- [ ] Groq adapter (fallback 1), OpenRouter adapter (fallback 2).
-- [ ] Retry + exponential backoff + circuit breaker + failover chain per `PROVIDER_PRIORITY`.
-- [ ] Replace every direct provider call from earlier phases with a gateway call.
-- **Done when**: simulating a 429/500 from the primary provider transparently falls through to the next provider without a failed request, verified by a test.
+- [x] Gateway interface (`generate`, `grade`, `route`, `check_groundedness`, `rewrite_query` — each tagged with a "purpose" per `RULES.md` §4).
+- [x] Gemini adapter (primary).
+- [x] Groq adapter (fallback 1), OpenRouter adapter (fallback 2).
+- [x] Retry + exponential backoff + circuit breaker + failover chain per `PROVIDER_PRIORITY`.
+- [x] Replace every direct provider call from earlier phases with a gateway call.
+- **Done when**: simulating a 429/500 from the primary provider transparently falls through to the next provider without a failed request, verified by a test. (Verified in tests: Gemini primary -> Groq fallback on 429/500 error; Groq -> OpenRouter tertiary fallback; CircuitBreaker CLOSED -> OPEN -> HALF_OPEN lifecycle; purpose-specific convenience methods; 81/81 tests passing).
 
 ## Phase 12 — Observability & Eval
 - [ ] OpenTelemetry spans on every node; `trace_id` threaded through `AgentState`.

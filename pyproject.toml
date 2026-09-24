@@ -35,3 +35,14 @@ dependencies = [
 [tool.uv]
 package = false
 link-mode = "copy"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+ignore = [
+    "B008",
+    "ASYNC230",
+]
+

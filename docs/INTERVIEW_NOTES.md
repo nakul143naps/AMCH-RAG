@@ -156,6 +156,18 @@ flowchart TD
   - *Challenge 2 (Tenant / User Isolation in Shared Vectors)*: Cross-session facts from User A must NEVER be returned in queries asked by User B.
   - *Solution*: Hard filter condition in `UserMemoryService.search_user_memory`: constructs a Qdrant `Filter(must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))])`. Retrieval is mathematically partitioned at the query engine level.
 
+### Step 12: Resilient Model Gateway & Circuit Breakers (Phase 11)
+- **Goal**: Protect system against upstream LLM rate limits (429), server downtime (5xx), and network timeouts via automated circuit breakers and ordered provider failover.
+- **Key Decision**:
+  - Implemented `CircuitBreaker` with 3-state machine (`CLOSED`, `OPEN`, `HALF_OPEN`), failure threshold (default 3), and recovery cooldown (default 60s).
+  - Wired into `ModelGateway` with ordered provider priority: `gemini` (primary) $\to$ `groq` (fallback 1) $\to$ `openrouter` (fallback 2) with exponential backoff retries.
+  - Added purpose-specific gateway routing (`grade`, `route`, `check_groundedness`, `rewrite_query`, `generate`) providing purpose-tuned system instructions and parameters.
+- **Difficulties Faced**:
+  - *Challenge 1 (Cascade Latency & Thundering Herd on Dead Provider)*: When an upstream provider is hard-down, attempting requests with timeouts on every user call adds 10–30s of latency before falling over.
+  - *Solution*: `CircuitBreaker` immediately fast-fails calls to a tripped provider in <1ms without network calls. After cooldown expires, it enters `HALF_OPEN` to permit a single canary probe: if successful, it resets to `CLOSED`; if failed, it trips back to `OPEN`.
+  - *Challenge 2 (Transient Glitches vs Provider Outages)*: A single socket blip or 503 shouldn't instantly fail over the entire fleet.
+  - *Solution*: Exponential backoff retry inside each provider before incrementing the failure count. Only consecutive unrecoverable errors trip the breaker.
+
 ---
 
 ## 3. Core Components & Code Snippets (For Explaining in Interviews)
@@ -553,6 +565,44 @@ class MemoryNode:
     async def __call__(self, state: AgentState) -> dict[str, Any]:
         # Injects combined short-term conversation summary and long-term user facts into state
         return {"memory_context": combined_memory, "chat_history": retained_messages}
+```
+
+---
+
+### Component 15: Circuit Breaker State Machine & Ordered Multi-Provider Failover
+> **Interview Question**: *"How do you implement high availability for LLMs when dealing with rate limits, timeouts, and multi-cloud providers?"*  
+> **Answer**: *"We combine an automated Circuit Breaker pattern with prioritized provider failover:  
+> 1. Circuit Breaker Lifecycle: Each provider adapter (Gemini, Groq, OpenRouter) is shielded by a 3-state Circuit Breaker (`CLOSED`, `OPEN`, `HALF_OPEN`). In `CLOSED`, calls proceed normally. If a provider experiences consecutive failures exceeding the threshold (e.g. 3 consecutive 429s/500s), the breaker trips to `OPEN`.  
+> 2. Fast-Failing & Canary Probing: In `OPEN`, subsequent requests instantly bypass that provider in <1ms without network calls. After a cooldown window (e.g. 60s), the breaker shifts to `HALF_OPEN` and admits a single canary request: if it succeeds, the breaker resets to `CLOSED`; if it fails, it trips back to `OPEN` for another cooldown.  
+> 3. Priority Cascades: The gateway executes `gemini` (primary) $\to$ `groq` (fallback 1) $\to$ `openrouter` (fallback 2). If Gemini is OPEN or fails after exponential backoff retries, Groq executes transparently. The caller receives a successful `GatewayResponse` with `provider` and `cost_estimate` metadata."*
+
+```python
+# app/gateway/circuit_breaker.py
+class CircuitBreaker:
+    def can_execute(self) -> bool:
+        if self._state == CircuitState.CLOSED:
+            return True
+        if self._state == CircuitState.OPEN:
+            if time.time() - self._last_failure_time >= self.cooldown_seconds:
+                self._state = CircuitState.HALF_OPEN
+                return True
+            return False
+        return True  # HALF_OPEN allows trial probe
+
+# app/gateway/client.py
+class ModelGateway:
+    async def generate(self, prompt: str, system_prompt: str = "", ...) -> GatewayResponse:
+        for provider_name in self.provider_priority:
+            provider = self.providers.get(provider_name)
+            if not provider or not provider.is_available():
+                continue
+            try:
+                content = await provider.generate(prompt=prompt, system_prompt=system_prompt)
+                return GatewayResponse(content=content, provider=provider_name)
+            except Exception as e:
+                provider.circuit_breaker.record_failure()
+                continue
+        raise AllProvidersExhaustedError("All providers exhausted")
 ```
 
 ---

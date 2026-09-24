@@ -129,7 +129,7 @@ class CacheManager:
                 )
                 client.ping()
                 self.redis_client = client
-            except Exception:
+            except Exception:  # noqa: BLE001
                 self.redis_client = None
 
     def check_health(self) -> dict[str, Any]:
@@ -138,7 +138,7 @@ class CacheManager:
             try:
                 self.redis_client.ping()
                 return {"backend": "redis", "status": "ok"}
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 return {
                     "backend": "redis",
                     "status": "unreachable",
@@ -158,7 +158,7 @@ class CacheManager:
                 val = self.redis_client.get(key)
                 if val:
                     return json.loads(val)
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
         val_str = self.sqlite_cache.get(key)
         if val_str:
@@ -180,7 +180,7 @@ class CacheManager:
                 if doc_ids:
                     for doc_id in doc_ids:
                         self.redis_client.sadd(f"doc_index:{doc_id}", key)
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
         self.sqlite_cache.set(key, serialized, ttl_seconds, doc_ids)
 
@@ -194,7 +194,7 @@ class CacheManager:
                     self.redis_client.delete(*keys)
                     self.redis_client.delete(f"doc_index:{doc_id}")
                     count += len(keys)
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
         count += self.sqlite_cache.invalidate_by_doc(doc_id)
         return count
@@ -204,6 +204,6 @@ class CacheManager:
         if self.redis_client is not None:
             try:
                 self.redis_client.flushdb()
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
         self.sqlite_cache.clear()

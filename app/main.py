@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     vector_mgr = VectorStoreManager.get_instance()
     try:
         vector_mgr.ensure_collections()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Warning: Failed to ensure collections on startup: {e}")
     yield
 
