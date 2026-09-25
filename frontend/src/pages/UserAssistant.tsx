@@ -4,6 +4,7 @@ import { ChatSidebar } from '../components/ChatSidebar'
 import { ChatMessage } from '../components/ChatMessage'
 import { ChatInput } from '../components/ChatInput'
 import { CitationDrawer } from '../components/CitationDrawer'
+import { DocumentManagerModal } from '../components/DocumentManagerModal'
 import type { Message, Citation, ChatSession } from '../types'
 import {
   Sparkles,
@@ -48,13 +49,13 @@ export const UserAssistant: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [documentCount, setDocumentCount] = useState<number>(0)
+  const [isDocModalOpen, setIsDocModalOpen] = useState(false)
   const [statusNotice, setStatusNotice] = useState<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
-  // Fetch document count on mount
-  useEffect(() => {
+  const fetchDocumentCount = () => {
     fetch('/documents')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -63,6 +64,11 @@ export const UserAssistant: React.FC = () => {
         }
       })
       .catch((err) => console.warn('Could not fetch doc count:', err))
+  }
+
+  // Fetch document count on mount
+  useEffect(() => {
+    fetchDocumentCount()
   }, [])
 
   // Sync messages whenever activeSessionId changes
@@ -423,6 +429,7 @@ export const UserAssistant: React.FC = () => {
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
         documentCount={documentCount}
+        onManageDocs={() => setIsDocModalOpen(true)}
       />
 
       {/* Main Conversation Container */}
@@ -435,6 +442,7 @@ export const UserAssistant: React.FC = () => {
           activeTitle={activeTitle}
           isLoading={isLoading}
           docCount={documentCount}
+          onManageDocs={() => setIsDocModalOpen(true)}
         />
 
         {/* Upload / Ingest Notification Banner */}
@@ -597,6 +605,13 @@ export const UserAssistant: React.FC = () => {
       <CitationDrawer
         citation={selectedCitation}
         onClose={() => setSelectedCitation(null)}
+      />
+
+      {/* Document Management Modal (View & Remove Knowledge Files) */}
+      <DocumentManagerModal
+        isOpen={isDocModalOpen}
+        onClose={() => setIsDocModalOpen(false)}
+        onDocumentsChanged={fetchDocumentCount}
       />
     </div>
   )

@@ -1,5 +1,5 @@
 import React from 'react'
-import { Sparkles, Plus, PanelLeft } from 'lucide-react'
+import { Sparkles, Plus, PanelLeft, FileText } from 'lucide-react'
 
 interface UserHeaderProps {
   onResetSession: () => void
@@ -8,6 +8,7 @@ interface UserHeaderProps {
   activeTitle?: string
   isLoading?: boolean
   docCount?: number
+  onManageDocs?: () => void
 }
 
 export const UserHeader: React.FC<UserHeaderProps> = ({
@@ -17,6 +18,7 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
   activeTitle,
   isLoading,
   docCount = 0,
+  onManageDocs,
 }) => {
   return (
     <header className="h-16 border-b border-slate-200 bg-white/95 backdrop-blur-md px-4 md:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
@@ -85,8 +87,24 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
         )}
       </div>
 
-      {/* Right side: New Chat Action */}
+      {/* Right side: Manage Docs & New Chat Action */}
       <div className="flex items-center gap-2 shrink-0">
+        {onManageDocs && (
+          <button
+            onClick={onManageDocs}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+            title="View, add, or remove indexed knowledge documents"
+          >
+            <FileText className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden sm:inline">Docs</span>
+            {docCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold">
+                {docCount}
+              </span>
+            )}
+          </button>
+        )}
+
         <button
           onClick={onResetSession}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs hover:shadow transition-all cursor-pointer"

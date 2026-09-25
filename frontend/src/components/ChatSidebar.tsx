@@ -18,6 +18,7 @@ interface ChatSidebarProps {
   isOpen: boolean
   onToggle: () => void
   documentCount: number
+  onManageDocs?: () => void
 }
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({
@@ -29,6 +30,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   isOpen,
   onToggle,
   documentCount,
+  onManageDocs,
 }) => {
   if (!isOpen) return null
 
@@ -112,17 +114,21 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         )}
       </div>
 
-      {/* Bottom Knowledge Info */}
+      {/* Bottom Knowledge Info with Remove / Manage Option */}
       <div className="p-3 border-t border-slate-200 bg-white/70">
-        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2 text-slate-700">
+        <button
+          onClick={onManageDocs}
+          className="w-full p-2.5 rounded-xl bg-slate-50 hover:bg-indigo-50/60 border border-slate-200 hover:border-indigo-200 flex items-center justify-between text-xs transition-all cursor-pointer group text-left"
+          title="Click to view and remove indexed documents"
+        >
+          <div className="flex items-center gap-2 text-slate-700 group-hover:text-indigo-700">
             <FileText className="w-3.5 h-3.5 text-indigo-600" />
             <span className="font-medium">Knowledge Corpus</span>
           </div>
-          <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold">
-            {documentCount} docs
+          <span className="px-2 py-0.5 rounded-full bg-indigo-50 group-hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold transition-colors">
+            {documentCount} docs &bull; Manage
           </span>
-        </div>
+        </button>
       </div>
     </aside>
   )
