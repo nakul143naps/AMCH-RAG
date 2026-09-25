@@ -488,26 +488,32 @@ export const UserAssistant: React.FC = () => {
         )}
 
         {/* Chat Feed */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-4">
-          {messages.length === 0 ? (
-            /* Welcome / Initial State (Hero) */
-            <div className="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto py-12">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-600 flex items-center justify-center text-white mb-5 shadow-lg shadow-indigo-500/20">
-                <Sparkles className="w-8 h-8" />
+        <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6">
+          <div className="max-w-3xl mx-auto space-y-6">
+            {/* Always Present at the Top: AMCH-RAG Personal Assistant Header */}
+            <div
+              className={`flex flex-col items-center justify-center text-center mx-auto transition-all ${
+                messages.length === 0
+                  ? 'py-10'
+                  : 'py-6 border-b border-slate-200/80 mb-4'
+              }`}
+            >
+              <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-600 flex items-center justify-center text-white mb-4 shadow-lg shadow-indigo-500/20">
+                <Sparkles className="w-7 h-7 md:w-8 md:h-8" />
               </div>
 
-              <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 mb-1">
+              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 mb-1">
                 AMCH-RAG
               </h1>
-              <p className="text-sm font-semibold text-indigo-600 tracking-wide mb-3">
+              <p className="text-xs md:text-sm font-semibold text-indigo-600 tracking-wide mb-2">
                 Agentic Multi-Modal Corrective Hybrid RAG
               </p>
-              <p className="text-xs md:text-sm text-slate-500 leading-relaxed mb-6 max-w-lg">
+              <p className="text-xs md:text-sm text-slate-500 leading-relaxed mb-5 max-w-lg">
                 Your personal knowledge assistant featuring hybrid dense + sparse retrieval, FlashRank reranking, Self-RAG groundedness verification, and sub-10ms caching.
               </p>
 
               {/* Engine Capabilities Tags */}
-              <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
+              <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                   <Database className="w-3 h-3 text-indigo-600" />
                   Qdrant Vector Store
@@ -526,70 +532,75 @@ export const UserAssistant: React.FC = () => {
                 </span>
               </div>
 
-              {/* Starter Question Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full text-left">
-                <button
-                  onClick={() => handleSendMessage('Summarize the 9 AI Engineer clusters in the roadmap')}
-                  className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
-                >
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
-                    <Compass className="w-4 h-4 text-indigo-500" />
-                    <span>Study Roadmap</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 leading-normal">
-                    Explore the 9 key clusters from the AI Engineer guide
-                  </p>
-                </button>
+              {/* Starter Question Cards (prominently displayed before messages) */}
+              {messages.length === 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full text-left">
+                  <button
+                    onClick={() => handleSendMessage('Summarize the 9 AI Engineer clusters in the roadmap')}
+                    className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
+                      <Compass className="w-4 h-4 text-indigo-500" />
+                      <span>Study Roadmap</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-normal">
+                      Explore the 9 key clusters from the AI Engineer guide
+                    </p>
+                  </button>
 
-                <button
-                  onClick={() => handleSendMessage('Explain inductive vs transductive transfer learning in detail')}
-                  className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
-                >
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
-                    <BookOpen className="w-4 h-4 text-indigo-500" />
-                    <span>Transfer Learning</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 leading-normal">
-                    Deep dive into fine-tuning, inductive, and adaptation
-                  </p>
-                </button>
+                  <button
+                    onClick={() => handleSendMessage('Explain inductive vs transductive transfer learning in detail')}
+                    className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
+                      <BookOpen className="w-4 h-4 text-indigo-500" />
+                      <span>Transfer Learning</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-normal">
+                      Deep dive into fine-tuning, inductive, and adaptation
+                    </p>
+                  </button>
 
-                <button
-                  onClick={() => handleSendMessage('What is the standard starting dosage of lisinopril?')}
-                  className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
-                >
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
-                    <Heart className="w-4 h-4 text-indigo-500" />
-                    <span>Quick Facts</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 leading-normal">
-                    Ask quick fact-checked questions or clinical references
-                  </p>
-                </button>
+                  <button
+                    onClick={() => handleSendMessage('What is the standard starting dosage of lisinopril?')}
+                    className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
+                      <Heart className="w-4 h-4 text-indigo-500" />
+                      <span>Quick Facts</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-normal">
+                      Ask quick fact-checked questions or clinical references
+                    </p>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Conversation Messages */}
+            {messages.length > 0 && (
+              <div className="space-y-4">
+                {messages.map((msg, idx) => {
+                  const isLastAssistantMessage =
+                    msg.role === 'assistant' &&
+                    idx === messages.map((m) => m.role).lastIndexOf('assistant')
+
+                  return (
+                    <ChatMessage
+                      key={msg.id}
+                      message={msg}
+                      onSelectCitation={(cit) => setSelectedCitation(cit)}
+                      onFeedback={handleFeedback}
+                      onFollowUp={handleSendMessage}
+                      isLast={isLastAssistantMessage}
+                    />
+                  )
+                })}
               </div>
-            </div>
-          ) : (
-            /* Active Conversation Feed */
-            <div className="max-w-3xl mx-auto space-y-4">
-              {messages.map((msg, idx) => {
-                const isLastAssistantMessage =
-                  msg.role === 'assistant' &&
-                  idx === messages.map((m) => m.role).lastIndexOf('assistant')
+            )}
 
-                return (
-                  <ChatMessage
-                    key={msg.id}
-                    message={msg}
-                    onSelectCitation={(cit) => setSelectedCitation(cit)}
-                    onFeedback={handleFeedback}
-                    onFollowUp={handleSendMessage}
-                    isLast={isLastAssistantMessage}
-                  />
-                )
-              })}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
 
         {/* Chat Input */}
