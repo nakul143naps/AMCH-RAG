@@ -34,6 +34,7 @@ async def list_documents() -> DocumentListResponse:
             chunk_count=d["chunk_count"],
             version=d.get("version", 1),
             created_at=d.get("created_at"),
+            summary=d.get("summary"),
         )
         for d in raw_docs
     ]
@@ -77,3 +78,17 @@ async def delete_document(doc_id: str) -> DocumentDeleteResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete document: {e}",
         ) from e
+
+
+@router.post(
+    "/cache/clear",
+    status_code=status.HTTP_200_OK,
+    summary="Clear all exact and semantic caches",
+)
+async def clear_cache() -> dict[str, str]:
+    """Purge all entries from exact SQLite/Redis cache and Qdrant semantic cache."""
+    cache_service = TwoTierCacheService.get_instance()
+    cache_service.clear()
+    logger.info("Cleared all exact and semantic caches via API")
+    return {"status": "success", "message": "All caches successfully cleared"}
+

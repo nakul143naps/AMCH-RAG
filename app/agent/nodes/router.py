@@ -21,9 +21,10 @@ Decide the optimal execution route:
 - "memory": Questions answerable purely from known user profile facts or previous conversation history (e.g. "what did I ask earlier", "what is my name").
 
 CRITICAL SELF-RAG RULES:
-1. Examine the summary and key topics of the injected documents below. If the query asks about any topic covered by the uploaded internal documents (even if the user does not explicitly say 'from the document'), choose "retrieve".
-2. If the user query is a general question, casual question, or conceptual definition unrelated to the uploaded documents, choose "direct". Do NOT retrieve.
-3. NEVER choose "retrieve" for simple greetings or broad general knowledge that has nothing to do with the uploaded documents.
+1. Examine the sections, topics, and titles of the injected internal documents below. If the user's question touches upon any topic, section, roadmap, cluster, guide, or technique present in the uploaded documents (e.g. 'roadmap', 'clusters', 'AI engineer', 'transfer learning', 'interview guide'), ALWAYS choose "retrieve".
+2. If the user query refers to 'the roadmap', 'the document', 'the guide', 'the clusters', or specific internal content, choose "retrieve".
+3. If the user query is a general knowledge question (e.g. "what is photosynthesis", "write python code for fibonacci") completely unrelated to the uploaded documents, choose "direct".
+4. NEVER choose "retrieve" for simple conversational greetings or chit-chat.
 
 Respond with your decision in the exact format:
 ROUTE: <direct|retrieve|cache|memory>
@@ -43,9 +44,11 @@ GREETING_PATTERNS = [
 
 MEMORY_PATTERNS = [
     r"what\s+(was|were)\s+(my|the)\s+(first|last|previous|earlier)\s+question",
-    r"what\s+did\s+i\s+(just\s+)?(ask|say)",
+    r"what\s+did\s+i\s+(just\s+)?(ask|say|tell|mention)",
     r"who\s+am\s+i\b",
-    r"what\s+is\s+my\s+name\b",
+    r"what\s+is\s+my\s+[a-z0-9_ ]+",
+    r"\b(my\s+favorite|my\s+preference|about\s+me|remember\s+about\s+me)\b",
+    r"\bdo\s+you\s+remember\b",
     r"what\s+did\s+we\s+(talk|discuss)\s+about",
     r"repeat\s+what\s+(i|you)\s+said",
     r"summarize\s+(our|the)\s+(chat|conversation)",
@@ -101,18 +104,7 @@ class RouterNode:
             )
             return {"route": "memory"}
 
-        # 2. Fast-path check: Is this query or an equivalent semantic query already in the cache?
-        try:
-            cached_entry, hit_type = await self.cache_service.async_lookup(
-                query=query, access_level=state.get("access_level", "default")
-            )
-            if cached_entry:
-                logger.info(
-                    f"Router detected existing cache hit ({hit_type}) for: '{query}' -> route=cache"
-                )
-                return {"route": "cache"}
-        except Exception as e:  # noqa: BLE001
-            logger.debug(f"Router cache probe exception: {e}")
+        # 2. Document catalog hint with summaries so router knows exact topics in injected documents
 
         # 3. Document catalog hint with summaries so router knows exact topics in injected documents
         doc_catalog_text = "No internal documents currently uploaded in knowledge base."
@@ -125,7 +117,7 @@ class RouterNode:
                     summary = d.get("summary", "")
                     count = d.get("chunk_count", 0)
                     if summary:
-                        doc_lines.append(f'- Document "{name}" ({count} chunks) | Topics/Excerpts: {summary[:250]}...')
+                        doc_lines.append(f'- Document "{name}" ({count} chunks) | Topics/Excerpts: {summary[:400]}...')
                     else:
                         doc_lines.append(f'- Document "{name}" ({count} chunks)')
                 doc_catalog_text = "Injected internal documents and topics available in knowledge base:\n" + "\n".join(doc_lines)

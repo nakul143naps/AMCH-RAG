@@ -292,6 +292,7 @@ class VectorStoreManager:
 
         docs_map: dict[str, dict[str, Any]] = {}
         snippets_map: dict[str, list[str]] = {}
+        sections_map: dict[str, list[str]] = {}
         for pt in points:
             if not pt.payload:
                 continue
@@ -310,17 +311,28 @@ class VectorStoreManager:
                     "summary": "",
                 }
                 snippets_map[doc_id] = []
+                sections_map[doc_id] = []
             docs_map[doc_id]["chunk_count"] += 1
 
+            section = pt.payload.get("section")
+            if section and section not in sections_map[doc_id] and len(sections_map[doc_id]) < 8:
+                sections_map[doc_id].append(section)
+
             content = (pt.payload.get("content") or "").strip()
-            if content and len(snippets_map[doc_id]) < 4:
-                first_words = " ".join(content.split()[:25])
+            if content and len(snippets_map[doc_id]) < 5:
+                # Capture clean topic phrases
+                first_words = " ".join(content.split()[:20])
                 if first_words not in snippets_map[doc_id]:
                     snippets_map[doc_id].append(first_words)
 
         for doc_id, doc_info in docs_map.items():
+            summary_parts = []
+            if sections_map.get(doc_id):
+                summary_parts.append("Sections: " + ", ".join(sections_map[doc_id]))
             if snippets_map.get(doc_id):
-                doc_info["summary"] = " | ".join(snippets_map[doc_id])
+                summary_parts.append("Topics: " + " | ".join(snippets_map[doc_id]))
+            doc_info["summary"] = " ; ".join(summary_parts)
 
         return list(docs_map.values())
+
 

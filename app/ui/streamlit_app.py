@@ -83,9 +83,20 @@ with st.sidebar:
 
     st.divider()
 
-    st.subheader("📚 Ingested Documents")
-    if st.button("Refresh Catalog"):
-        st.rerun()
+    col_ref, col_clr = st.columns(2)
+    with col_ref:
+        if st.button("🔄 Refresh"):
+            st.rerun()
+    with col_clr:
+        if st.button("🧹 Clear Cache"):
+            try:
+                c_res = httpx.post(f"{api_base}/documents/cache/clear", timeout=5.0)
+                if c_res.status_code == 200:
+                    st.toast("Exact and semantic caches purged!")
+                else:
+                    st.error("Failed to clear cache")
+            except Exception as e:
+                st.error(f"Error: {e}")
 
     try:
         doc_res = httpx.get(f"{api_base}/documents", timeout=5.0)
@@ -93,8 +104,10 @@ with st.sidebar:
             docs = doc_res.json().get("documents", [])
             if docs:
                 for doc in docs:
-                    with st.expander(f"{doc['source_name']} ({doc['chunk_count']} chunks)"):
+                    with st.expander(f"📄 {doc['source_name']} ({doc['chunk_count']} chunks)"):
                         st.caption(f"ID: {doc['doc_id']} | Access: {doc['access_level']}")
+                        if doc.get("summary"):
+                            st.caption(f"**Topics:** {doc['summary'][:160]}...")
                         if st.button("🗑️ Delete", key=f"del_{doc['doc_id']}"):
                             del_res = httpx.delete(f"{api_base}/documents/{doc['doc_id']}")
                             if del_res.status_code == 200:

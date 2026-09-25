@@ -33,7 +33,7 @@ class MemoryNode:
 
         memory_parts = []
 
-        # 1. Short-term dialogue compression if history is long
+        # 1. Short-term dialogue compression or recent history inclusion
         if len(chat_history) > self.short_term_manager.max_messages:
             retained_messages, summary = await self.short_term_manager.compress_history(
                 chat_history
@@ -42,6 +42,16 @@ class MemoryNode:
                 memory_parts.append(f"Earlier conversation summary:\n{summary}")
         else:
             retained_messages = chat_history
+
+        # Include recent conversation turns into memory context
+        if retained_messages:
+            prior_turns = [m for m in retained_messages if getattr(m, "content", "") != query]
+            if prior_turns:
+                turn_lines = [
+                    f"- {'User' if getattr(m, 'type', None) == 'human' else 'Assistant'}: {getattr(m, 'content', str(m))}"
+                    for m in prior_turns[-8:]
+                ]
+                memory_parts.append("Recent Conversation History:\n" + "\n".join(turn_lines))
 
         # 2. Long-term durable fact retrieval if user_id is provided
         if user_id:

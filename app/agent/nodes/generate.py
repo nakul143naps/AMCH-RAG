@@ -10,10 +10,11 @@ from app.retrieval.models import Citation, RetrievedChunk
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_INSTRUCTION = """You are a precise, grounded assistant. Answer questions using ONLY the provided context.
-Cite each factual claim with the source marker [n] matching the corresponding numbered context passage (e.g. [1], [2]).
-If the context does not contain enough information to answer the question, state clearly that the knowledge base does not contain the answer.
-Do not invent information or make claims not supported by the context."""
+SYSTEM_INSTRUCTION = """You are a precise, grounded enterprise assistant. Answer questions using the provided context passages and conversation memory.
+Cite each factual claim derived from the context passages with the source marker [n] matching the corresponding numbered context passage (e.g. [1], [2]).
+If the user's question refers to previous conversation turns or facts mentioned in Conversation Memory, answer directly using the remembered facts.
+If neither the context passages nor the conversation memory contains enough information to answer the question, state clearly that the uploaded documents do not contain the answer.
+Do not invent facts or make claims not supported by the context."""
 
 WEB_SYSTEM_INSTRUCTION = """You are a precise, grounded assistant.
 Note: The internal knowledge base did not contain sufficient information, so the following context was retrieved via external web search fallback.
@@ -182,21 +183,23 @@ class GenerateNode:
             clean_answer = f"[Web-Sourced Answer]\n{clean_answer}"
 
         # Cache write-through to Two-Tier Cache (exact SHA-256 + semantic vector index)
-        doc_ids = list({c.doc_id for c in chunks})
-        try:
-            await self.cache_service.async_store(
-                query=query,
-                access_level=access_level,
-                answer=clean_answer,
-                citations=[c.model_dump() for c in citations],
-                doc_ids=doc_ids,
-                trace_id=trace_id,
-            )
-            logger.info(
-                f"GenerateNode stored response in two-tier cache for query: '{query}'"
-            )
-        except Exception as e:  # noqa: BLE001
-            logger.warning(f"Failed to store generated response in cache: {e}")
+        # NEVER cache web-sourced answers or failed fallbacks into the cache
+        doc_ids = list({c.doc_id for c in chunks if c.doc_id != "web_search"})
+        if not is_web_sourced and citations and not clean_answer.startswith("I could not find"):
+            try:
+                await self.cache_service.async_store(
+                    query=query,
+                    access_level=access_level,
+                    answer=clean_answer,
+                    citations=[c.model_dump() for c in citations],
+                    doc_ids=doc_ids,
+                    trace_id=trace_id,
+                )
+                logger.info(
+                    f"GenerateNode stored verified document response in two-tier cache for query: '{query}'"
+                )
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"Failed to store generated response in cache: {e}")
 
         return {
             "draft_answer": clean_answer,

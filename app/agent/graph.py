@@ -68,7 +68,8 @@ def crag_decision(state: AgentState) -> Literal["generate", "rewrite", "web_sear
     - If retrieved_docs has relevant chunks -> proceed to generate.
     - If no relevant chunks:
         - If correction_attempts < MAX_CORRECTION_ATTEMPTS -> rewrite query and retry retrieval.
-        - If correction attempts exhausted -> fallback to web_search or generate zero-context answer.
+        - If correction attempts exhausted -> strictly route to generate when internal documents exist,
+          reserving web_search strictly for explicit web requests or when knowledge base is empty.
     """
     settings = get_settings()
     max_attempts = settings.MAX_CORRECTION_ATTEMPTS
@@ -90,7 +91,15 @@ def crag_decision(state: AgentState) -> Literal["generate", "rewrite", "web_sear
     # Correction attempts exhausted:
     # If the user explicitly asked from the uploaded document/PDF, do not search the web.
     query = (state.get("query") or "").lower()
-    explicit_doc_phrases = ["in the pdf", "in the document", "from the document", "uploaded file", "uploaded pdf", "in this document", "in this file"]
+    explicit_doc_phrases = [
+        "in the pdf",
+        "in the document",
+        "from the document",
+        "uploaded file",
+        "uploaded pdf",
+        "in this document",
+        "in this file",
+    ]
     if any(phrase in query for phrase in explicit_doc_phrases):
         logger.info(
             "CRAG decision: query explicitly targets an internal document -> routing to generate (avoiding web search)"
@@ -106,6 +115,8 @@ def crag_decision(state: AgentState) -> Literal["generate", "rewrite", "web_sear
 
     logger.info("CRAG decision: correction exhausted and web search disabled -> routing to generate")
     return "generate"
+
+
 
 
 def groundedness_decision(state: AgentState) -> Literal["output_guardrails", "generate"]:

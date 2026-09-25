@@ -31,6 +31,14 @@ class HybridRetriever:
         self.embedding_engine = embedding_engine or EmbeddingEngine.get_instance()
         self.reranker = reranker or RerankerService.get_instance()
 
+    ACCESS_HIERARCHY: dict[str, list[str]] = {
+        "admin": ["admin", "confidential", "internal", "default", "public"],
+        "confidential": ["confidential", "internal", "default", "public"],
+        "internal": ["internal", "default", "public"],
+        "default": ["default", "public"],
+        "public": ["public"],
+    }
+
     def _build_filter(
         self,
         access_levels: str | list[str] | None = None,
@@ -38,28 +46,34 @@ class HybridRetriever:
         source_types: str | list[str] | None = None,
         filter_criteria: dict[str, Any] | None = None,
     ) -> Filter | None:
-        """Construct Qdrant Filter with strict must-match conditions for tenant and metadata isolation."""
+        """Construct Qdrant Filter with hierarchical access level and metadata isolation."""
         must_conditions = []
 
-        # Access levels filter
-        if access_levels is not None:
+        # Access levels filter with role hierarchy expansion
+        if access_levels is not None and access_levels != "all":
             if isinstance(access_levels, str):
-                must_conditions.append(
-                    FieldCondition(
-                        key="access_level", match=MatchValue(value=access_levels)
-                    )
+                allowed_levels = self.ACCESS_HIERARCHY.get(
+                    access_levels.lower(), [access_levels]
                 )
             elif isinstance(access_levels, list) and access_levels:
-                if len(access_levels) == 1:
+                allowed_set: set[str] = set()
+                for lvl in access_levels:
+                    allowed_set.update(self.ACCESS_HIERARCHY.get(lvl.lower(), [lvl]))
+                allowed_levels = list(allowed_set)
+            else:
+                allowed_levels = []
+
+            if allowed_levels:
+                if len(allowed_levels) == 1:
                     must_conditions.append(
                         FieldCondition(
-                            key="access_level", match=MatchValue(value=access_levels[0])
+                            key="access_level", match=MatchValue(value=allowed_levels[0])
                         )
                     )
                 else:
                     must_conditions.append(
                         FieldCondition(
-                            key="access_level", match=MatchAny(any=access_levels)
+                            key="access_level", match=MatchAny(any=allowed_levels)
                         )
                     )
 

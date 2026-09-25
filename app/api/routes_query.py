@@ -121,7 +121,26 @@ async def query_knowledge_base(
             },
         )
 
-    # Standard non-streaming JSON path
+    # If session_id or user_id is provided, route through stateful multi-turn AgentService
+    if request.session_id or request.user_id:
+        try:
+            agent_service = AgentService.get_instance()
+            response = await agent_service.answer(request)
+            duration = time.perf_counter() - start_time
+            REQUEST_LATENCY_SECONDS.labels(endpoint="/query").observe(duration)
+            return response
+        except RuntimeError as e:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Model generation failed: {e}",
+            ) from e
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Query execution failed: {e}",
+            ) from e
+
+    # Baseline RAG Service for stateless non-streaming queries (Phase 3 baseline & unit tests)
     try:
         service = BaselineRAGService()
         response = await service.answer(request)
@@ -138,3 +157,4 @@ async def query_knowledge_base(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Query execution failed: {e}",
         ) from e
+
