@@ -78,6 +78,7 @@ def _process_url_background(job_id: str, url: str, access_level: str) -> None:
 
 
 @router.post("", status_code=status.HTTP_202_ACCEPTED, response_model=IngestJob)
+@router.post("/file", status_code=status.HTTP_202_ACCEPTED, response_model=IngestJob)
 async def ingest_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),

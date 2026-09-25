@@ -353,21 +353,56 @@ export const UserAssistant: React.FC = () => {
     formData.append('access_level', 'internal')
 
     try {
-      setStatusNotice(`Indexing "${file.name}" into knowledge corpus...`)
-      const res = await fetch('/ingest/file', {
+      setStatusNotice(`Uploading "${file.name}" to AMCH-RAG knowledge corpus...`)
+      const res = await fetch('/ingest', {
         method: 'POST',
         body: formData,
       })
       if (!res.ok) throw new Error(`Upload failed with status ${res.status}`)
       const data = await res.json()
-      setStatusNotice(`"${file.name}" successfully indexed! (Job ID: ${data.job_id || 'done'})`)
-      setTimeout(() => setStatusNotice(null), 5000)
+      const jobId = data.job_id
 
-      // Refresh doc count
-      const docsRes = await fetch('/documents')
-      if (docsRes.ok) {
-        const d = await docsRes.json()
-        if (typeof d.total === 'number') setDocumentCount(d.total)
+      setStatusNotice(`Indexing "${file.name}" (Extracting, chunking & vectorizing)...`)
+
+      // Poll job status until complete
+      if (jobId) {
+        let attempts = 0
+        const pollInterval = setInterval(async () => {
+          attempts++
+          try {
+            const statusRes = await fetch(`/ingest/${jobId}`)
+            if (statusRes.ok) {
+              const statusData = await statusRes.json()
+              if (statusData.status === 'completed') {
+                clearInterval(pollInterval)
+                setStatusNotice(`"${file.name}" successfully indexed! (${statusData.total_chunks || 1} chunks added)`)
+                setTimeout(() => setStatusNotice(null), 5000)
+
+                // Refresh doc count
+                const docsRes = await fetch('/documents')
+                if (docsRes.ok) {
+                  const d = await docsRes.json()
+                  if (typeof d.total === 'number') setDocumentCount(d.total)
+                }
+              } else if (statusData.status === 'failed') {
+                clearInterval(pollInterval)
+                setStatusNotice(`Indexing failed: ${statusData.error || 'Unknown error'}`)
+                setTimeout(() => setStatusNotice(null), 6000)
+              }
+            }
+          } catch {
+            // ignore network glitch during poll
+          }
+
+          if (attempts > 30) {
+            clearInterval(pollInterval)
+            setStatusNotice(`"${file.name}" uploaded. Processing in background...`)
+            setTimeout(() => setStatusNotice(null), 4000)
+          }
+        }, 1500)
+      } else {
+        setStatusNotice(`"${file.name}" successfully uploaded!`)
+        setTimeout(() => setStatusNotice(null), 4000)
       }
     } catch (err: any) {
       console.error('File upload error:', err)
