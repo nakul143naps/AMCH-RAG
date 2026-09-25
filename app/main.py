@@ -72,12 +72,30 @@ app.include_router(feedback_router)
 app.include_router(metrics_router)
 app.include_router(admin_router)
 
+# Production SPA Static Files Mounting (Optimized for AWS Free Tier Deployment)
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
-@app.get("/")
-async def root() -> dict[str, str]:
-    """Root status greeting."""
-    return {
-        "project": settings.PROJECT_NAME,
-        "status": "online",
-        "docs_url": "/docs",
-    }
+DIST_DIR = Path("frontend/dist")
+if DIST_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(DIST_DIR / "assets")), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        # Allow internal docs / schema to pass
+        if full_path in ("docs", "redoc", "openapi.json"):
+            return None
+        file_path = DIST_DIR / full_path
+        if file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(DIST_DIR / "index.html")
+else:
+    @app.get("/")
+    async def root() -> dict[str, str]:
+        """Root status greeting."""
+        return {
+            "project": settings.PROJECT_NAME,
+            "status": "online",
+            "docs_url": "/docs",
+        }
