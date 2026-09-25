@@ -73,20 +73,25 @@ async def sse_event_stream(
 
         # Post-generation background fact extraction for durable user memory
         if request.user_id and final_answer:
-            try:
-                from app.memory.long_term import UserMemoryService
+            from app.memory.long_term import UserMemoryService
 
-                user_mem = UserMemoryService.get_instance()
-                extracted = await user_mem.extract_facts(
-                    user_message=request.query,
-                    assistant_response=final_answer,
-                )
-                if extracted:
-                    await user_mem.async_store_facts(
-                        user_id=request.user_id, facts=extracted
+            async def _bg_extract(uid: str, q: str, a: str) -> None:
+                try:
+                    user_mem = UserMemoryService.get_instance()
+                    extracted = await user_mem.extract_facts(
+                        user_message=q,
+                        assistant_response=a,
                     )
-            except Exception as e:  # noqa: BLE001
-                logger.warning("Post-stream fact extraction failed: %s", e)
+                    if extracted:
+                        await user_mem.async_store_facts(
+                            user_id=uid, facts=extracted
+                        )
+                except Exception as ex:  # noqa: BLE001
+                    logger.warning("Post-stream fact extraction failed: %s", ex)
+
+            asyncio.create_task(
+                _bg_extract(request.user_id, request.query, final_answer)
+            )
 
     except Exception as e:  # noqa: BLE001
         logger.error("SSE stream error: %s", e)

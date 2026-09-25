@@ -1,5 +1,6 @@
 """Provider implementations for Gemini, Groq, and OpenRouter with unified interfaces."""
 
+import asyncio
 from abc import ABC, abstractmethod
 
 from google import genai
@@ -105,7 +106,8 @@ class GroqProvider(BaseLLMProvider):
             messages.append({"role": "system", "content": system_instruction})
         messages.append({"role": "user", "content": prompt})
 
-        response = self.client.chat.completions.create(
+        response = await asyncio.to_thread(
+            self.client.chat.completions.create,
             model=model,
             messages=messages,
             temperature=temperature,
@@ -148,7 +150,8 @@ class OpenRouterProvider(BaseLLMProvider):
             messages.append({"role": "system", "content": system_instruction})
         messages.append({"role": "user", "content": prompt})
 
-        response = self.client.chat.completions.create(
+        response = await asyncio.to_thread(
+            self.client.chat.completions.create,
             model=model,
             messages=messages,
             temperature=temperature,

@@ -1,5 +1,6 @@
 """High-level Agentic RAG Service wrapping the compiled LangGraph execution."""
 
+import asyncio
 import logging
 import uuid
 from typing import Any
@@ -114,24 +115,33 @@ class AgentService:
             for c in final_state.get("citations", [])
         ]
 
-        # Post-generation durable user fact extraction
+        # Post-generation durable user fact extraction (fire-and-forget in background)
         if request.user_id and final_state.get("final_answer"):
             from app.memory.long_term import UserMemoryService
 
-            try:
-                user_mem = UserMemoryService.get_instance()
-                extracted = await user_mem.extract_facts(
-                    user_message=request.query,
-                    assistant_response=final_state.get("final_answer", ""),
-                )
-                if extracted:
-                    await user_mem.async_store_facts(
-                        user_id=request.user_id, facts=extracted
+            async def _bg_extract(uid: str, q: str, a: str) -> None:
+                try:
+                    user_mem = UserMemoryService.get_instance()
+                    extracted = await user_mem.extract_facts(
+                        user_message=q,
+                        assistant_response=a,
                     )
-            except Exception as e:  # noqa: BLE001
-                logger.warning(
-                    f"Background fact extraction failed for user '{request.user_id}': {e}"
+                    if extracted:
+                        await user_mem.async_store_facts(
+                            user_id=uid, facts=extracted
+                        )
+                except Exception as ex:  # noqa: BLE001
+                    logger.warning(
+                        f"Background fact extraction failed for user '{uid}': {ex}"
+                    )
+
+            asyncio.create_task(
+                _bg_extract(
+                    request.user_id,
+                    request.query,
+                    final_state.get("final_answer", ""),
                 )
+            )
 
         return QueryResponse(
             answer=final_state.get("final_answer") or "",
