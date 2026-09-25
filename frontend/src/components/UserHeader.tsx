@@ -1,5 +1,5 @@
 import React from 'react'
-import { Sparkles, Plus, PanelLeft, ShieldAlert } from 'lucide-react'
+import { Sparkles, Plus, PanelLeft } from 'lucide-react'
 
 interface UserHeaderProps {
   onResetSession: () => void
@@ -85,17 +85,8 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
         )}
       </div>
 
-      {/* Right side: New Chat & Admin Link */}
+      {/* Right side: New Chat Action */}
       <div className="flex items-center gap-2 shrink-0">
-        <a
-          href="/admin"
-          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer border border-transparent hover:border-slate-200"
-          title="Open Admin Cockpit for Caches, Memory, Qdrant & LangSmith"
-        >
-          <ShieldAlert className="w-3.5 h-3.5 text-purple-600" />
-          <span>Admin</span>
-        </a>
-
         <button
           onClick={onResetSession}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs hover:shadow transition-all cursor-pointer"

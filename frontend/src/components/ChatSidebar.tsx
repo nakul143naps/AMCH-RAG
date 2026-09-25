@@ -4,7 +4,6 @@ import {
   Plus,
   Trash2,
   FileText,
-  ShieldAlert,
   ChevronLeft,
   Sparkles,
 } from 'lucide-react'
@@ -113,8 +112,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         )}
       </div>
 
-      {/* Bottom Knowledge Info & Admin Portal link */}
-      <div className="p-3 border-t border-slate-200 bg-white/70 space-y-2">
+      {/* Bottom Knowledge Info */}
+      <div className="p-3 border-t border-slate-200 bg-white/70">
         <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2 text-slate-700">
             <FileText className="w-3.5 h-3.5 text-indigo-600" />
@@ -124,17 +123,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             {documentCount} docs
           </span>
         </div>
-
-        <a
-          href="/admin"
-          className="flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-medium transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-3.5 h-3.5 text-purple-600" />
-            <span>Admin Control Center</span>
-          </div>
-          <span className="text-[10px] text-slate-400">&rarr;</span>
-        </a>
       </div>
     </aside>
   )
