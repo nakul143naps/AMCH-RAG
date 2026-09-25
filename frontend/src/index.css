@@ -6,14 +6,14 @@
   }
 
   body {
-    background-color: #0f1117;
-    color: #f3f4f6;
+    background-color: #f8fafc;
+    color: #0f172a;
     font-family: var(--font-sans);
     overflow-x: hidden;
   }
 }
 
-/* Custom Sleek Scrollbar */
+/* Custom Sleek Light Scrollbar */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -22,22 +22,24 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.35);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.4);
+  background: rgba(148, 163, 184, 0.6);
 }
 
-/* Soft frosted panels */
+/* Light theme cards */
 .soft-card {
-  background: rgba(24, 27, 36, 0.7);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
 }
 
 .soft-card-solid {
-  background: #181b24;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
 }

@@ -99,7 +99,6 @@ export const UserAssistant: React.FC = () => {
               const payload = JSON.parse(jsonStr)
 
               if (payload.type === 'token') {
-                // Support both payload.content and payload.token
                 const chunk = payload.content ?? payload.token ?? ''
                 fullContent += chunk
                 setMessages((prev) =>
@@ -208,7 +207,7 @@ export const UserAssistant: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#0f1117] font-sans text-zinc-100">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#f8fafc] font-sans text-slate-900">
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
         {/* Personal Assistant Header */}
         <UserHeader
@@ -222,52 +221,52 @@ export const UserAssistant: React.FC = () => {
         <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-4">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center max-w-xl mx-auto py-12">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center text-white mb-5 shadow-lg shadow-violet-500/20">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-white mb-5 shadow-md shadow-indigo-500/20">
                 <Sparkles className="w-7 h-7" />
               </div>
-              <h2 className="text-2xl font-bold tracking-tight text-white mb-2">
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-2">
                 Hi there! What can I help you learn today?
               </h2>
-              <p className="text-xs md:text-sm text-zinc-400 leading-relaxed mb-8 max-w-md">
+              <p className="text-xs md:text-sm text-slate-500 leading-relaxed mb-8 max-w-md">
                 I am your personal knowledge assistant. Ask me questions about your uploaded documents, study roadmaps, or any concept you want to master.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full text-left">
                 <button
                   onClick={() => handleSendMessage('Summarize the 9 AI Engineer clusters in the roadmap')}
-                  className="p-4 rounded-xl soft-card hover:bg-zinc-800/80 transition-all text-left group"
+                  className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
                 >
-                  <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200 group-hover:text-violet-400 mb-1">
-                    <Compass className="w-4 h-4 text-violet-400" />
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
+                    <Compass className="w-4 h-4 text-indigo-500" />
                     <span>Study Roadmap</span>
                   </div>
-                  <p className="text-[11px] text-zinc-400 leading-normal">
+                  <p className="text-[11px] text-slate-500 leading-normal">
                     Explore the 9 key clusters from the AI Engineer guide
                   </p>
                 </button>
 
                 <button
                   onClick={() => handleSendMessage('Explain inductive vs transductive transfer learning in detail')}
-                  className="p-4 rounded-xl soft-card hover:bg-zinc-800/80 transition-all text-left group"
+                  className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
                 >
-                  <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200 group-hover:text-violet-400 mb-1">
-                    <BookOpen className="w-4 h-4 text-violet-400" />
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
+                    <BookOpen className="w-4 h-4 text-indigo-500" />
                     <span>Transfer Learning</span>
                   </div>
-                  <p className="text-[11px] text-zinc-400 leading-normal">
+                  <p className="text-[11px] text-slate-500 leading-normal">
                     Deep dive into fine-tuning, inductive, and adaptation
                   </p>
                 </button>
 
                 <button
                   onClick={() => handleSendMessage('What is the standard starting dosage of lisinopril?')}
-                  className="p-4 rounded-xl soft-card hover:bg-zinc-800/80 transition-all text-left group"
+                  className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
                 >
-                  <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200 group-hover:text-violet-400 mb-1">
-                    <Heart className="w-4 h-4 text-violet-400" />
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
+                    <Heart className="w-4 h-4 text-indigo-500" />
                     <span>Quick Facts</span>
                   </div>
-                  <p className="text-[11px] text-zinc-400 leading-normal">
+                  <p className="text-[11px] text-slate-500 leading-normal">
                     Ask quick fact-checked questions or clinical references
                   </p>
                 </button>

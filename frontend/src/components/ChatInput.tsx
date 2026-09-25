@@ -63,7 +63,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }
 
   return (
-    <div className="p-4 md:p-6 bg-gradient-to-t from-[#0f1117] via-[#0f1117]/90 to-transparent sticky bottom-0 z-20">
+    <div className="p-4 md:p-6 bg-gradient-to-t from-[#f8fafc] via-[#f8fafc]/95 to-transparent sticky bottom-0 z-20">
       <div className="max-w-3xl mx-auto space-y-3">
         {/* Suggestion Chips */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
@@ -73,7 +73,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               type="button"
               disabled={isLoading}
               onClick={() => onSendMessage(sug)}
-              className="px-3 py-1 rounded-full bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 border border-white/5 text-xs whitespace-nowrap transition-colors shrink-0 disabled:opacity-50"
+              className="px-3 py-1 rounded-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs text-xs whitespace-nowrap transition-colors shrink-0 disabled:opacity-50 cursor-pointer"
             >
               {sug}
             </button>
@@ -83,7 +83,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         {/* Input Card */}
         <form
           onSubmit={handleSubmit}
-          className="relative rounded-2xl bg-zinc-900/90 border border-white/10 focus-within:border-violet-500/60 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all shadow-lg"
+          className="relative rounded-2xl bg-white border border-slate-200 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all shadow-sm"
         >
           <textarea
             ref={textareaRef}
@@ -93,7 +93,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onKeyDown={handleKeyDown}
             disabled={isLoading}
             placeholder="Message Aura... ask anything about your documents or roadmap"
-            className="w-full pl-11 pr-14 py-3.5 rounded-2xl bg-transparent text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none max-h-44 leading-relaxed"
+            className="w-full pl-11 pr-14 py-3.5 rounded-2xl bg-transparent text-sm text-slate-900 placeholder-slate-400 focus:outline-none resize-none max-h-44 leading-relaxed"
           />
 
           {/* Left Attachment Icon */}
@@ -102,7 +102,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isLoading || isUploading}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors disabled:opacity-40"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-40 cursor-pointer"
               title="Attach and index document (PDF, TXT, DOCX)"
             >
               <Paperclip className="w-4 h-4" />
@@ -122,7 +122,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               <button
                 type="button"
                 onClick={onStop}
-                className="w-8 h-8 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 flex items-center justify-center transition-colors"
+                className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors cursor-pointer"
                 title="Stop response"
               >
                 <StopCircle className="w-4 h-4 animate-pulse" />
@@ -131,7 +131,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               <button
                 type="submit"
                 disabled={!query.trim()}
-                className="w-8 h-8 rounded-xl bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-md shadow-violet-600/20"
+                className="w-8 h-8 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-xs cursor-pointer"
                 title="Send message"
               >
                 <ArrowUp className="w-4 h-4" />
@@ -140,7 +140,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           </div>
         </form>
 
-        <div className="text-center text-[11px] text-zinc-500">
+        <div className="text-center text-[11px] text-slate-400">
           Personal AI Companion &bull; Grounded in your uploaded knowledge
         </div>
       </div>
