@@ -120,8 +120,33 @@ class Settings(BaseSettings):
     )
     ENABLE_PROMETHEUS: bool = True
 
+    # LangSmith Native Tracing
+    LANGCHAIN_TRACING_V2: str | None = Field(
+        default=None, description="Enable LangSmith tracing"
+    )
+    LANGCHAIN_API_KEY: str | None = Field(
+        default=None, description="LangSmith API key"
+    )
+    LANGCHAIN_PROJECT: str = Field(
+        default="AMCH-RAG", description="LangSmith project name"
+    )
+    LANGCHAIN_ENDPOINT: str = Field(
+        default="https://api.smith.langchain.com", description="LangSmith endpoint"
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:
     """Return a cached singleton instance of the application settings."""
-    return Settings()
+    import os
+
+    s = Settings()
+    if s.LANGCHAIN_TRACING_V2:
+        os.environ["LANGCHAIN_TRACING_V2"] = str(s.LANGCHAIN_TRACING_V2).lower()
+    if s.LANGCHAIN_API_KEY:
+        os.environ["LANGCHAIN_API_KEY"] = s.LANGCHAIN_API_KEY
+    if s.LANGCHAIN_PROJECT:
+        os.environ["LANGCHAIN_PROJECT"] = s.LANGCHAIN_PROJECT
+    if s.LANGCHAIN_ENDPOINT:
+        os.environ["LANGCHAIN_ENDPOINT"] = s.LANGCHAIN_ENDPOINT
+    return s
