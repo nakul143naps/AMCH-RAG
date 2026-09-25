@@ -34,7 +34,7 @@ async def sse_event_stream(
     - { "type": "done", "trace_id": str }
     """
     try:
-        agent_service = AgentService()
+        agent_service = AgentService.get_instance()
         final_state = await agent_service.ainvoke(
             query=request.query,
             session_id=request.session_id,

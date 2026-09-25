@@ -114,8 +114,7 @@ def groundedness_decision(state: AgentState) -> Literal["output_guardrails", "ge
     draft = state.get("draft_answer", "") or ""
     if (
         not draft
-        or not state.get("retrieved_docs")
-        or state.get("route") == "direct"
+        or state.get("route") in ("direct", "cache")
         or draft.startswith(("I could not find", "I cannot process", "Hello!", "Hi there"))
     ):
         return "output_guardrails"

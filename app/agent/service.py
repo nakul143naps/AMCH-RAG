@@ -17,6 +17,14 @@ logger = logging.getLogger(__name__)
 class AgentService:
     """Orchestrates agentic query execution through the compiled LangGraph workflow."""
 
+    _instance: Any = None
+
+    @classmethod
+    def get_instance(cls) -> "AgentService":
+        if cls._instance is None:
+            cls._instance = AgentService()
+        return cls._instance
+
     def __init__(
         self,
         graph: CompiledStateGraph | None = None,

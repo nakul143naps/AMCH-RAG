@@ -5,17 +5,20 @@ import re
 from typing import Any
 
 from app.agent.state import AgentState, RouteType
+from app.cache.service import TwoTierCacheService
 from app.gateway.client import ModelGateway
+from app.retrieval.vector_store import VectorStoreManager
 
 logger = logging.getLogger(__name__)
 
 ROUTER_SYSTEM_INSTRUCTION = """You are an intelligent Self-RAG routing agent deciding whether document retrieval is actually necessary.
-Analyze the user query and decide the optimal execution route:
+Analyze the user query, the conversation context, and the list of available uploaded documents.
+Decide the optimal execution route:
 
-- "direct": General knowledge questions, concepts, definitions, explanations, math, programming, or advice that do NOT require looking up internal enterprise documents (e.g. "what are transformers", "what is machine learning", "explain photosynthesis", "write python code for fibonacci"). The LLM can answer these directly from its pre-trained knowledge without slow retrieval loops.
-- "retrieve": Questions specifically asking for information from uploaded files, internal company documents, proprietary policies, financial reports, or when the user mentions files/documents (e.g. "what does the uploaded PDF say", "according to our Q3 financial report", "what is the vacation policy in chapter 2").
+- "direct": General knowledge questions, concepts, definitions, explanations, math, programming, general world facts, or advice that do NOT require looking up internal enterprise documents (e.g. "what are transformers", "what is machine learning", "explain photosynthesis", "write python code for fibonacci"). The LLM can answer these directly from its pre-trained knowledge without slow retrieval loops.
+- "retrieve": Questions specifically asking for information from uploaded files, internal company documents, proprietary policies, financial reports, or when the user's question relates to the available uploaded internal documents.
 - "cache": Any greeting, salutation, or chit-chat (e.g. "hi", "hello", "hey", "how are you", "who are you").
-- "memory": Questions answerable purely from known user profile facts or previous conversation history.
+- "memory": Questions answerable purely from known user profile facts or previous conversation history (e.g. "what did I ask earlier", "what is my name").
 
 Respond with your decision in the exact format:
 ROUTE: <direct|retrieve|cache|memory>
@@ -37,8 +40,15 @@ GREETING_PATTERNS = [
 class RouterNode:
     """Evaluates the user query to choose the optimal downstream node."""
 
-    def __init__(self, gateway: ModelGateway | None = None) -> None:
+    def __init__(
+        self,
+        gateway: ModelGateway | None = None,
+        cache_service: TwoTierCacheService | None = None,
+        vector_mgr: VectorStoreManager | None = None,
+    ) -> None:
         self.gateway = gateway or ModelGateway.get_instance()
+        self.cache_service = cache_service or TwoTierCacheService.get_instance()
+        self.vector_mgr = vector_mgr or VectorStoreManager.get_instance()
 
     def _is_conversational_greeting(self, query: str) -> bool:
         """Check if query is a pure conversational greeting or chit-chat."""
@@ -54,12 +64,35 @@ class RouterNode:
         """Classify user query and set route in AgentState."""
         query = state.get("query", "").strip()
 
-        # Fast-path for greetings / pleasantries to save latency & tokens
+        # 1. Fast-path for greetings / pleasantries to save latency & tokens
         if self._is_conversational_greeting(query):
             logger.info(
                 f"Router fast-path matched greeting for: '{query}' -> route=cache"
             )
             return {"route": "cache"}
+
+        # 2. Fast-path check: Is this query or an equivalent semantic query already in the cache?
+        try:
+            cached_entry, hit_type = await self.cache_service.async_lookup(
+                query=query, access_level=state.get("access_level", "default")
+            )
+            if cached_entry:
+                logger.info(
+                    f"Router detected existing cache hit ({hit_type}) for: '{query}' -> route=cache"
+                )
+                return {"route": "cache"}
+        except Exception as e:  # noqa: BLE001
+            logger.debug(f"Router cache probe exception: {e}")
+
+        # 3. Document catalog hint so router knows what documents exist
+        doc_catalog_text = "No internal documents currently uploaded in knowledge base."
+        try:
+            docs = self.vector_mgr.list_documents()
+            if docs:
+                doc_titles = [d.get("source_name") for d in docs if d.get("source_name")]
+                doc_catalog_text = f"Uploaded internal documents available: {doc_titles}"
+        except Exception as e:  # noqa: BLE001
+            logger.debug(f"Router could not list documents: {e}")
 
         # Prepare router prompt with history context if present
         history_summary = ""
@@ -76,9 +109,10 @@ class RouterNode:
             )
 
         prompt = (
+            f"{doc_catalog_text}\n\n"
             f"{history_summary}"
             f"User Query: {query}\n\n"
-            f"Determine the route (cache, memory, retrieve, tool_call):"
+            "Determine the route (direct, retrieve, memory, cache):"
         )
 
         try:
