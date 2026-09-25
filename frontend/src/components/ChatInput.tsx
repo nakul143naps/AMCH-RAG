@@ -8,7 +8,7 @@ interface ChatInputProps {
   onUploadFile?: (file: File) => Promise<void>
 }
 
-const SUGGESTIONS = [
+const DEFAULT_SUGGESTIONS = [
   'Summarize the AI Engineer roadmap',
   'What are the 9 clusters in the guide?',
   'Explain transfer learning in detail',
@@ -63,11 +63,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }
 
   return (
-    <div className="p-4 md:p-6 bg-gradient-to-t from-[#f8fafc] via-[#f8fafc]/95 to-transparent sticky bottom-0 z-20">
-      <div className="max-w-3xl mx-auto space-y-3">
+    <div className="p-3 md:p-5 bg-gradient-to-t from-[#f8fafc] via-[#f8fafc]/95 to-transparent sticky bottom-0 z-20">
+      <div className="max-w-3xl mx-auto space-y-2.5">
         {/* Suggestion Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-          {SUGGESTIONS.map((sug, idx) => (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs no-scrollbar">
+          {DEFAULT_SUGGESTIONS.map((sug, idx) => (
             <button
               key={idx}
               type="button"
@@ -80,10 +80,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           ))}
         </div>
 
-        {/* Input Card */}
+        {/* Input Box (ChatGPT style) */}
         <form
           onSubmit={handleSubmit}
-          className="relative rounded-2xl bg-white border border-slate-200 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all shadow-sm"
+          className="relative rounded-2xl bg-white border border-slate-200/90 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all shadow-xs"
         >
           <textarea
             ref={textareaRef}
@@ -92,7 +92,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={isLoading}
-            placeholder="Message Aura... ask anything about your documents or roadmap"
+            placeholder="Ask AMCH-RAG anything... (Shift+Enter for new line)"
             className="w-full pl-11 pr-14 py-3.5 rounded-2xl bg-transparent text-sm text-slate-900 placeholder-slate-400 focus:outline-none resize-none max-h-44 leading-relaxed"
           />
 
@@ -103,7 +103,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               onClick={() => fileInputRef.current?.click()}
               disabled={isLoading || isUploading}
               className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-40 cursor-pointer"
-              title="Attach and index document (PDF, TXT, DOCX)"
+              title="Index new document (PDF, TXT, DOCX)"
             >
               <Paperclip className="w-4 h-4" />
             </button>
@@ -140,8 +140,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           </div>
         </form>
 
-        <div className="text-center text-[11px] text-slate-400">
-          Personal AI Companion &bull; Grounded in your uploaded knowledge
+        <div className="text-center text-[11px] text-slate-400 font-medium">
+          AMCH-RAG: Agentic Multi-Modal Corrective Hybrid RAG &bull; Verified Grounded Citations
         </div>
       </div>
     </div>

@@ -54,3 +54,10 @@ export interface QdrantCollectionInfo {
   status: string
   segments_count: number
 }
+
+export interface ChatSession {
+  id: string
+  title: string
+  timestamp: string
+  messages: Message[]
+}
