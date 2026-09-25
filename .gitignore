@@ -19,3 +19,4 @@ static/
 
 # Local environment secrets
 .env
+.env.checkpoint
