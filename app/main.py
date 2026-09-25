@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes_admin import router as admin_router
 from app.api.routes_documents import router as documents_router
 from app.api.routes_feedback import router as feedback_router
 from app.api.routes_health import router as health_router
@@ -69,6 +70,7 @@ app.include_router(query_router)
 app.include_router(documents_router)
 app.include_router(feedback_router)
 app.include_router(metrics_router)
+app.include_router(admin_router)
 
 
 @app.get("/")
