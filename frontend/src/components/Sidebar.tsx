@@ -6,13 +6,11 @@ import {
   Globe,
   Trash2,
   RefreshCw,
-  Sparkles,
   ChevronDown,
   ChevronRight,
   BookOpen,
   CheckCircle2,
   AlertCircle,
-  ExternalLink,
 } from 'lucide-react'
 import type { DocumentItem } from '../types'
 
@@ -21,7 +19,6 @@ interface SidebarProps {
   onUploadFile: (file: File) => Promise<void>
   onIngestUrl: (url: string) => Promise<void>
   onDeleteDocument: (docId: string) => Promise<void>
-  onClearCache: () => Promise<void>
   onRefresh: () => Promise<void>
   isOpen: boolean
   onClose: () => void
@@ -32,7 +29,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onUploadFile,
   onIngestUrl,
   onDeleteDocument,
-  onClearCache,
   onRefresh,
   isOpen,
   onClose,
@@ -303,36 +299,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* Section 3: Bottom Operations & Quick Links */}
-        <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 space-y-2.5">
-          <button
-            onClick={onClearCache}
-            className="w-full py-2 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 text-xs font-medium flex items-center justify-center gap-2 border border-slate-700/60 transition-colors shadow-sm"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Purge Exact & Semantic Caches</span>
-          </button>
-
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <a
-              href="http://localhost:8000/docs"
-              target="_blank"
-              rel="noreferrer"
-              className="py-1.5 px-2 rounded-lg bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <span>Swagger API</span>
-              <ExternalLink className="w-3 h-3 opacity-60" />
-            </a>
-
-            <a
-              href="http://localhost:8000/metrics"
-              target="_blank"
-              rel="noreferrer"
-              className="py-1.5 px-2 rounded-lg bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <span>Prometheus</span>
-              <ExternalLink className="w-3 h-3 opacity-60" />
-            </a>
+        {/* Section 3: Clean Summary Footer */}
+        <div className="p-4 border-t border-slate-800 bg-slate-950/80 text-xs text-slate-400">
+          <div className="flex items-center justify-between text-[11px]">
+            <span>Active Knowledge Corpus</span>
+            <span className="font-mono text-slate-200 font-semibold">{documents.length} files</span>
           </div>
         </div>
       </aside>

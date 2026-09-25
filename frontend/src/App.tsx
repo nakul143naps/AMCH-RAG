@@ -4,10 +4,12 @@ import { Sidebar } from './components/Sidebar'
 import { ChatMessage } from './components/ChatMessage'
 import { ChatInput } from './components/ChatInput'
 import { CitationDrawer } from './components/CitationDrawer'
+import { SystemMonitor } from './components/SystemMonitor'
 import type { Message, Citation, DocumentItem, SystemHealth } from './types'
-import { Sparkles, ShieldCheck, Zap, Database } from 'lucide-react'
+import { Sparkles, Compass, BookOpen, ShieldCheck } from 'lucide-react'
 
 export const App: React.FC = () => {
+  const [currentView, setCurrentView] = useState<'chat' | 'monitor'>('chat')
   const [messages, setMessages] = useState<Message[]>([])
   const [documents, setDocuments] = useState<DocumentItem[]>([])
   const [health, setHealth] = useState<SystemHealth | null>(null)
@@ -24,8 +26,10 @@ export const App: React.FC = () => {
   }
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    if (currentView === 'chat') {
+      scrollToBottom()
+    }
+  }, [messages, currentView])
 
   // Initial Fetch: Documents, Summaries, and System Health
   const loadDocuments = async () => {
@@ -58,8 +62,10 @@ export const App: React.FC = () => {
   const loadHealth = async () => {
     try {
       const res = await fetch('/health')
-      const data = await res.json()
-      setHealth(data)
+      if (res.ok) {
+        const data = await res.json()
+        setHealth(data)
+      }
     } catch (err) {
       console.error('Error loading health:', err)
     }
@@ -72,7 +78,7 @@ export const App: React.FC = () => {
     return () => clearInterval(interval)
   }, [])
 
-  // File Upload Ingestion
+  // Document Ingestion
   const handleUploadFile = async (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
@@ -84,15 +90,12 @@ export const App: React.FC = () => {
     })
 
     if (!res.ok) {
-      const err = await res.json()
-      throw new Error(err.detail || 'Upload failed')
+      throw new Error(`Upload failed with status ${res.status}`)
     }
 
-    // Refresh document list after ingestion
-    setTimeout(loadDocuments, 1500)
+    await loadDocuments()
   }
 
-  // URL Ingestion
   const handleIngestUrl = async (url: string) => {
     const res = await fetch('/ingest/url', {
       method: 'POST',
@@ -101,14 +104,12 @@ export const App: React.FC = () => {
     })
 
     if (!res.ok) {
-      const err = await res.json()
-      throw new Error(err.detail || 'URL ingest failed')
+      throw new Error(`URL ingestion failed with status ${res.status}`)
     }
 
-    setTimeout(loadDocuments, 2000)
+    await loadDocuments()
   }
 
-  // Delete Document
   const handleDeleteDocument = async (docId: string) => {
     const res = await fetch(`/documents/${docId}`, { method: 'DELETE' })
     if (res.ok) {
@@ -116,18 +117,21 @@ export const App: React.FC = () => {
     }
   }
 
-  // Clear Cache
   const handleClearCache = async () => {
-    await fetch('/documents/cache/clear', { method: 'POST' })
+    try {
+      await fetch('/query/cache', { method: 'DELETE' })
+    } catch (e) {
+      console.error('Failed to clear cache:', e)
+    }
   }
 
-  // Send Query via SSE Streaming
+  // Streaming SSE Query Handler
   const handleSendMessage = async (queryText: string) => {
-    const userMsgId = `usr_${Date.now()}`
-    const assistantMsgId = `ast_${Date.now()}`
-    const startTime = performance.now()
+    if (!queryText.trim() || isLoading) return
 
-    // Append User Message
+    const userMsgId = `msg_${Date.now()}`
+    const assistantMsgId = `msg_${Date.now() + 1}`
+
     const userMsg: Message = {
       id: userMsgId,
       role: 'user',
@@ -135,7 +139,6 @@ export const App: React.FC = () => {
       timestamp: new Date().toLocaleTimeString(),
     }
 
-    // Initial empty streaming assistant message
     const initialAssistantMsg: Message = {
       id: assistantMsgId,
       role: 'assistant',
@@ -177,84 +180,114 @@ export const App: React.FC = () => {
       const collectedCitations: Citation[] = []
       const collectedCorrections: string[] = []
       let traceId = ''
-      let providerUsed = 'groq'
+      let providerUsed = ''
+      let streamBuffer = ''
 
       if (reader) {
-        let buffer = ''
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
 
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
+          streamBuffer += decoder.decode(value, { stream: true })
+          const lines = streamBuffer.split('\n')
+          streamBuffer = lines.pop() || ''
 
           for (const line of lines) {
             const trimmed = line.trim()
-            if (trimmed.startsWith('data: ')) {
-              try {
-                const event = JSON.parse(trimmed.slice(6))
-                if (event.type === 'token') {
-                  fullContent += event.content
-                } else if (event.type === 'citation') {
-                  collectedCitations.push(event)
-                } else if (event.type === 'correction') {
-                  collectedCorrections.push(event.reason)
-                } else if (event.type === 'done') {
-                  traceId = event.trace_id || ''
+            if (!trimmed || !trimmed.startsWith('data:')) continue
+
+            const jsonStr = trimmed.slice(5).trim()
+            if (!jsonStr) continue
+
+            try {
+              const payload = JSON.parse(jsonStr)
+
+              if (payload.type === 'token') {
+                fullContent += payload.token || ''
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMsgId ? { ...msg, content: fullContent } : msg
+                  )
+                )
+              } else if (payload.type === 'citation') {
+                const cit: Citation = {
+                  index: payload.index || collectedCitations.length + 1,
+                  source: payload.source || 'Knowledge Base',
+                  chunk_id: payload.chunk_id || '',
+                  page: payload.page,
+                  section: payload.section,
+                  content: payload.content,
                 }
-              } catch (e) {
-                // partial json or text
+                collectedCitations.push(cit)
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMsgId
+                      ? { ...msg, citations: [...collectedCitations] }
+                      : msg
+                  )
+                )
+              } else if (payload.type === 'correction') {
+                collectedCorrections.push(payload.message || 'Groundedness verified')
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMsgId
+                      ? { ...msg, corrections: [...collectedCorrections] }
+                      : msg
+                  )
+                )
+              } else if (payload.type === 'done') {
+                traceId = payload.trace_id || ''
+                providerUsed = payload.provider_used || ''
+                if (payload.citations && payload.citations.length > 0) {
+                  payload.citations.forEach((c: any, i: number) => {
+                    if (!collectedCitations.some((existing) => existing.chunk_id === c.chunk_id)) {
+                      collectedCitations.push({
+                        index: c.index || i + 1,
+                        source: c.source || 'Knowledge Base',
+                        chunk_id: c.chunk_id || '',
+                        page: c.page,
+                        section: c.section,
+                        content: c.content,
+                      })
+                    }
+                  })
+                }
               }
+            } catch (err) {
+              console.warn('Malformed SSE event chunk:', err, jsonStr)
             }
           }
-
-          // Update streaming state live
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMsgId
-                ? {
-                    ...m,
-                    content: fullContent,
-                    citations: [...collectedCitations],
-                    corrections: [...collectedCorrections],
-                    trace_id: traceId,
-                    provider_used: providerUsed,
-                    latency: (performance.now() - startTime) / 1000,
-                  }
-                : m
-            )
-          )
         }
       }
 
-      // Final state once done
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMsgId
+        prev.map((msg) =>
+          msg.id === assistantMsgId
             ? {
-                ...m,
+                ...msg,
+                content: fullContent,
                 isStreaming: false,
-                content: fullContent || m.content,
                 citations: collectedCitations,
                 corrections: collectedCorrections,
                 trace_id: traceId,
-                latency: (performance.now() - startTime) / 1000,
+                provider_used: providerUsed,
               }
-            : m
+            : msg
         )
       )
     } catch (err: any) {
       if (err.name !== 'AbortError') {
+        console.error('Query streaming error:', err)
         setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMsgId
+          prev.map((msg) =>
+            msg.id === assistantMsgId
               ? {
-                  ...m,
+                  ...msg,
+                  content:
+                    'I encountered an error retrieving or validating information from the knowledge base. Please try again or check the system status.',
                   isStreaming: false,
-                  content: `⚠️ Query execution failed: ${err.message || 'Error communicating with backend'}.`,
                 }
-              : m
+              : msg
           )
         )
       }
@@ -288,94 +321,124 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-950 font-sans text-slate-100">
-      {/* Sidebar Knowledge Hub */}
+    <div className="flex h-screen w-screen overflow-hidden bg-[#090d16] font-sans text-slate-100">
+      {/* Sidebar Knowledge Hub (Slide-over for User View) */}
       <Sidebar
         documents={documents}
         onUploadFile={handleUploadFile}
         onIngestUrl={handleIngestUrl}
         onDeleteDocument={handleDeleteDocument}
-        onClearCache={handleClearCache}
         onRefresh={loadDocuments}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />
 
-      {/* Main Chat Area */}
+      {/* Main Workspace Area */}
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
         <Header
-          health={health}
-          sessionId={sessionId}
+          currentView={currentView}
+          onViewChange={(v) => setCurrentView(v)}
           onResetSession={() => {
             setSessionId(`sess_${Date.now()}`)
             setMessages([])
           }}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           isSidebarOpen={isSidebarOpen}
+          documentCount={documents.length}
         />
 
-        {/* Messages Feed */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6">
-          {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center max-w-xl mx-auto py-12">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-xl shadow-blue-500/20 mb-6">
-                <Sparkles className="w-8 h-8 text-white" />
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight text-white mb-2">
-                Enterprise AMCH-RAG Assistant
-              </h2>
-              <p className="text-sm text-slate-400 leading-relaxed mb-8">
-                Ask questions about your uploaded documents, roadmaps, systems, or general concepts.
-                Every response is validated through Self-RAG groundedness checks and two-tier caching.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full text-left">
-                <div className="p-4 rounded-xl glass-panel border border-slate-800">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-blue-400 mb-1">
-                    <Database className="w-4 h-4" />
-                    <span>Qdrant Hybrid</span>
+        {/* VIEW 1: Regular User Chat Assistant */}
+        {currentView === 'chat' && (
+          <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+            {/* Messages Feed */}
+            <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-4">
+              {messages.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto py-12">
+                  <div className="w-12 h-12 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-5 shadow-sm">
+                    <Sparkles className="w-6 h-6" />
                   </div>
-                  <p className="text-xs text-slate-400">Dense vectors & BM25 fused with FlashRank</p>
-                </div>
+                  <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white mb-2">
+                    How can I assist you today?
+                  </h2>
+                  <p className="text-xs md:text-sm text-slate-400 leading-relaxed mb-8 max-w-lg">
+                    Search and synthesize information across your company's indexed documents, AI engineering guides, roadmaps, and technical specifications.
+                  </p>
 
-                <div className="p-4 rounded-xl glass-panel border border-slate-800">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400 mb-1">
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>Self-RAG CRAG</span>
-                  </div>
-                  <p className="text-xs text-slate-400">Zero hallucinations with automatic groundedness checks</p>
-                </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full text-left">
+                    <button
+                      onClick={() => handleSendMessage('Summarize the 9 AI Engineer clusters in the roadmap')}
+                      className="p-4 rounded-xl bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all text-left group"
+                    >
+                      <div className="flex items-center gap-2 text-xs font-semibold text-slate-300 group-hover:text-blue-400 mb-1">
+                        <Compass className="w-4 h-4 text-blue-400" />
+                        <span>Roadmap Clusters</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-normal">Explore the 9 key clusters from the AI Engineer Field Guide</p>
+                    </button>
 
-                <div className="p-4 rounded-xl glass-panel border border-slate-800">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 mb-1">
-                    <Zap className="w-4 h-4" />
-                    <span>Sub-10ms Cache</span>
+                    <button
+                      onClick={() => handleSendMessage('Explain inductive vs transductive transfer learning in detail')}
+                      className="p-4 rounded-xl bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all text-left group"
+                    >
+                      <div className="flex items-center gap-2 text-xs font-semibold text-slate-300 group-hover:text-purple-400 mb-1">
+                        <BookOpen className="w-4 h-4 text-purple-400" />
+                        <span>Transfer Learning</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-normal">Deep dive into fine-tuning, inductive, and domain adaptation</p>
+                    </button>
+
+                    <button
+                      onClick={() => handleSendMessage('What is the standard starting dosage of lisinopril?')}
+                      className="p-4 rounded-xl bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all text-left group"
+                    >
+                      <div className="flex items-center gap-2 text-xs font-semibold text-slate-300 group-hover:text-emerald-400 mb-1">
+                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                        <span>Precision Answers</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-normal">Fact-checked clinical reference or general factual queries</p>
+                    </button>
                   </div>
-                  <p className="text-xs text-slate-400">Instant answers for repeated questions & chit-chat</p>
                 </div>
-              </div>
+              ) : (
+                <div className="max-w-3xl mx-auto space-y-4">
+                  {messages.map((msg) => (
+                    <ChatMessage
+                      key={msg.id}
+                      message={msg}
+                      onSelectCitation={(cit) => setSelectedCitation(cit)}
+                      onFeedback={handleFeedback}
+                    />
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="max-w-4xl mx-auto space-y-4">
-              {messages.map((msg) => (
-                <ChatMessage
-                  key={msg.id}
-                  message={msg}
-                  onSelectCitation={(cit) => setSelectedCitation(cit)}
-                  onFeedback={handleFeedback}
-                />
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-        </div>
 
-        {/* Input Controls */}
-        <ChatInput
-          onSendMessage={handleSendMessage}
-          isLoading={isLoading}
-          onStop={handleStop}
-        />
+            {/* Input Controls */}
+            <ChatInput
+              onSendMessage={handleSendMessage}
+              isLoading={isLoading}
+              onStop={handleStop}
+              onUploadFile={handleUploadFile}
+            />
+          </div>
+        )}
+
+        {/* VIEW 2: Operations & System Monitor */}
+        {currentView === 'monitor' && (
+          <SystemMonitor
+            health={health}
+            documents={documents}
+            onRefresh={async () => {
+              await loadDocuments()
+              await loadHealth()
+            }}
+            onClearCache={handleClearCache}
+            onDeleteDocument={handleDeleteDocument}
+            onUploadFile={handleUploadFile}
+            onIngestUrl={handleIngestUrl}
+          />
+        )}
       </div>
 
       {/* Slide-Over Verified Citation Drawer */}

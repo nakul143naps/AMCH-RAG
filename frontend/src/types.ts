@@ -46,3 +46,11 @@ export interface SystemHealth {
     openrouter: boolean
   }
 }
+
+export interface QdrantCollectionInfo {
+  name: string
+  points_count: number
+  indexed_vectors_count: number
+  status: string
+  segments_count: number
+}

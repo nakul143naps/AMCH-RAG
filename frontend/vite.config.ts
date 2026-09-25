@@ -14,6 +14,10 @@ export default defineConfig({
       '/metrics': 'http://localhost:8000',
       '/feedback': 'http://localhost:8000',
       '/ingest': 'http://localhost:8000',
+      '/qdrant-api': {
+        target: 'http://localhost:6333',
+        rewrite: (path: string) => path.replace(/^\/qdrant-api/, ''),
+      },
     },
   },
 })
