@@ -11,6 +11,10 @@ wheels/
 
 # Local data, storage, and models
 data/
+storage/
+bin/
+static/
+.qdrant-initialized
 .pytest_cache/
 
 # Local environment secrets
