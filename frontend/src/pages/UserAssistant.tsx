@@ -221,14 +221,17 @@ export const UserAssistant: React.FC = () => {
         <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-4">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center max-w-xl mx-auto py-12">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-white mb-5 shadow-md shadow-indigo-500/20">
-                <Sparkles className="w-7 h-7" />
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-600 flex items-center justify-center text-white mb-5 shadow-lg shadow-indigo-500/20">
+                <Sparkles className="w-8 h-8" />
               </div>
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-2">
-                Hi there! What can I help you learn today?
-              </h2>
+              <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 mb-1">
+                AMCH-RAG
+              </h1>
+              <p className="text-sm font-semibold text-indigo-600 tracking-wide mb-3">
+                Agentic Multi-Modal Corrective Hybrid RAG
+              </p>
               <p className="text-xs md:text-sm text-slate-500 leading-relaxed mb-8 max-w-md">
-                I am your personal knowledge assistant. Ask me questions about your uploaded documents, study roadmaps, or any concept you want to master.
+                Your personal knowledge assistant powered by hybrid dense + sparse retrieval, FlashRank reranking, Self-RAG groundedness checks, and sub-10ms caching.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full text-left">

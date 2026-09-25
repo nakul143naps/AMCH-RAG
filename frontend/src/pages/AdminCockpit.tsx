@@ -442,20 +442,23 @@ export const AdminCockpit: React.FC = () => {
       <div className="border-b border-slate-200 bg-white/95 backdrop-blur-md px-6 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-100 border border-indigo-200 text-indigo-700 flex items-center justify-center font-bold text-sm shadow-xs">
-              AC
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+              <Sparkles className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold text-slate-900 tracking-tight">
-                  Admin Control &amp; System Portals
+                <h1 className="text-base font-extrabold text-slate-900 tracking-tight">
+                  AMCH-RAG
                 </h1>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold">
+                  Admin Cockpit
+                </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">
-                  Online
+                  Live
                 </span>
               </div>
-              <p className="text-xs text-slate-500">
-                Direct diversions to Qdrant DB and LangSmith, plus inspection of caches, user memory, and guardrails.
+              <p className="text-xs text-slate-500 font-medium">
+                Agentic Multi-Modal Corrective Hybrid RAG &bull; System Controls &amp; Portals
               </p>
             </div>
           </div>
