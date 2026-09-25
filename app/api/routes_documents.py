@@ -1,6 +1,7 @@
 """FastAPI router for document catalog inspection and deletion with cache invalidation."""
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -91,4 +92,33 @@ async def clear_cache() -> dict[str, str]:
     cache_service.clear()
     logger.info("Cleared all exact and semantic caches via API")
     return {"status": "success", "message": "All caches successfully cleared"}
+
+
+@router.post(
+    "/summaries/refresh",
+    status_code=status.HTTP_200_OK,
+    summary="Ensure and refresh high-level summaries for all documents",
+)
+async def refresh_document_summaries() -> dict[str, Any]:
+    """Scan all ingested documents and cache high-level topic summaries."""
+    from app.ingestion.summarizer import DocumentSummarizer
+
+    summarizer = DocumentSummarizer.get_instance()
+    await summarizer.ensure_all_documents_summarized()
+    summaries = summarizer.cache_mgr.get_all_document_summaries()
+    return {"status": "success", "count": len(summaries), "summaries": summaries}
+
+
+@router.get(
+    "/summaries",
+    status_code=status.HTTP_200_OK,
+    summary="List all cached high-level document summaries",
+)
+async def get_document_summaries() -> dict[str, Any]:
+    """Return all cached high-level document summaries."""
+    from app.cache.manager import CacheManager
+
+    cache_mgr = CacheManager.get_instance()
+    summaries = cache_mgr.get_all_document_summaries()
+    return {"summaries": summaries}
 

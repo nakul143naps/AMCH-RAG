@@ -29,6 +29,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         vector_mgr.ensure_collections()
     except Exception as e:  # noqa: BLE001
         print(f"Warning: Failed to ensure collections on startup: {e}")
+
+    # Ensure all ingested documents have high-level summaries cached for summary-guided routing
+    try:
+        import asyncio
+        from app.ingestion.summarizer import DocumentSummarizer
+
+        asyncio.create_task(
+            DocumentSummarizer.get_instance().ensure_all_documents_summarized()
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"Warning: Failed to trigger document summarization: {e}")
+
     yield
 
 

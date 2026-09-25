@@ -42,6 +42,17 @@ class SQLiteCache:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS document_summaries (
+                    doc_id TEXT PRIMARY KEY,
+                    source_name TEXT NOT NULL,
+                    summary TEXT NOT NULL,
+                    topics TEXT NOT NULL,
+                    updated_at REAL NOT NULL
+                )
+                """
+            )
             conn.commit()
 
     def get(self, key: str) -> str | None:
@@ -104,6 +115,60 @@ class SQLiteCache:
             conn.execute("DELETE FROM cache_entries")
             conn.execute("DELETE FROM doc_cache_index")
             conn.commit()
+
+    def set_document_summary(
+        self,
+        doc_id: str,
+        source_name: str,
+        summary: str,
+        topics: str,
+    ) -> None:
+        """Store or update a comprehensive high-level document summary."""
+        with self._get_conn() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO document_summaries (doc_id, source_name, summary, topics, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (doc_id, source_name, summary, topics, time.time()),
+            )
+            conn.commit()
+
+    def get_document_summary(self, doc_id: str) -> dict[str, Any] | None:
+        """Retrieve stored high-level summary for a specific document."""
+        with self._get_conn() as conn:
+            cursor = conn.execute(
+                "SELECT doc_id, source_name, summary, topics, updated_at FROM document_summaries WHERE doc_id = ?",
+                (doc_id,),
+            )
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "doc_id": row[0],
+                    "source_name": row[1],
+                    "summary": row[2],
+                    "topics": row[3],
+                    "updated_at": row[4],
+                }
+            return None
+
+    def get_all_document_summaries(self) -> list[dict[str, Any]]:
+        """Retrieve all high-level document summaries sorted by updated_at descending."""
+        with self._get_conn() as conn:
+            cursor = conn.execute(
+                "SELECT doc_id, source_name, summary, topics, updated_at FROM document_summaries ORDER BY updated_at DESC"
+            )
+            rows = cursor.fetchall()
+            return [
+                {
+                    "doc_id": r[0],
+                    "source_name": r[1],
+                    "summary": r[2],
+                    "topics": r[3],
+                    "updated_at": r[4],
+                }
+                for r in rows
+            ]
 
 
 class CacheManager:
@@ -207,3 +272,21 @@ class CacheManager:
             except Exception:  # noqa: BLE001, S110
                 pass
         self.sqlite_cache.clear()
+
+    def set_document_summary(
+        self,
+        doc_id: str,
+        source_name: str,
+        summary: str,
+        topics: str,
+    ) -> None:
+        """Store or update a high-level document summary."""
+        self.sqlite_cache.set_document_summary(doc_id, source_name, summary, topics)
+
+    def get_document_summary(self, doc_id: str) -> dict[str, Any] | None:
+        """Retrieve stored high-level summary for a specific document."""
+        return self.sqlite_cache.get_document_summary(doc_id)
+
+    def get_all_document_summaries(self) -> list[dict[str, Any]]:
+        """Retrieve all high-level document summaries."""
+        return self.sqlite_cache.get_all_document_summaries()

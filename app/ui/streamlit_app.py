@@ -100,13 +100,24 @@ with st.sidebar:
 
     try:
         doc_res = httpx.get(f"{api_base}/documents", timeout=5.0)
+        sum_res = httpx.get(f"{api_base}/documents/summaries", timeout=5.0)
+        summaries_map = (
+            {s["doc_id"]: s for s in sum_res.json().get("summaries", [])}
+            if sum_res.status_code == 200
+            else {}
+        )
+
         if doc_res.status_code == 200:
             docs = doc_res.json().get("documents", [])
             if docs:
                 for doc in docs:
                     with st.expander(f"📄 {doc['source_name']} ({doc['chunk_count']} chunks)"):
                         st.caption(f"ID: {doc['doc_id']} | Access: {doc['access_level']}")
-                        if doc.get("summary"):
+                        s_info = summaries_map.get(doc['doc_id'])
+                        if s_info:
+                            st.markdown(f"**Topics:** {s_info.get('topics')}")
+                            st.markdown(f"**Summary:** {s_info.get('summary')}")
+                        elif doc.get("summary"):
                             st.caption(f"**Topics:** {doc['summary'][:160]}...")
                         if st.button("🗑️ Delete", key=f"del_{doc['doc_id']}"):
                             del_res = httpx.delete(f"{api_base}/documents/{doc['doc_id']}")

@@ -12,18 +12,18 @@ from app.retrieval.vector_store import VectorStoreManager
 logger = logging.getLogger(__name__)
 
 ROUTER_SYSTEM_INSTRUCTION = """You are an intelligent Self-RAG routing agent deciding whether document retrieval is actually necessary.
-Analyze the user query, the conversation context, and the list of available uploaded documents and their topics.
+Analyze the user query, the conversation context, and the list of available uploaded documents and their summarized topics.
 Decide the optimal execution route:
 
-- "direct": General knowledge questions, concepts, definitions, explanations, math, programming, general world facts, or advice that do NOT require looking up internal enterprise documents (e.g. "what are transformers", "what is machine learning", "explain photosynthesis", "write python code for fibonacci"). The LLM can answer these directly from its pre-trained knowledge without slow retrieval loops.
-- "retrieve": Questions specifically asking for information from uploaded files, internal company documents, proprietary policies, financial reports, or when the user's question relates to the available uploaded internal documents or their topics.
+- "direct": Strictly for general world knowledge, math calculations, code templates, or topics completely unrelated to any uploaded documents (e.g. "what is photosynthesis", "capital of Italy", "solve 2x + 5 = 15", "write a hello world in C"). Use direct ONLY when the user's question has zero overlap with any uploaded documents.
+- "retrieve": Questions asking for information from uploaded files, or questions related to ANY topic, section, cluster, roadmap, concept, algorithm, or methodology present in the uploaded document summaries below.
 - "cache": Any greeting, salutation, or chit-chat (e.g. "hi", "hello", "hey", "how are you", "who are you").
 - "memory": Questions answerable purely from known user profile facts or previous conversation history (e.g. "what did I ask earlier", "what is my name").
 
 CRITICAL SELF-RAG RULES:
-1. Examine the sections, topics, and titles of the injected internal documents below. If the user's question touches upon any topic, section, roadmap, cluster, guide, or technique present in the uploaded documents (e.g. 'roadmap', 'clusters', 'AI engineer', 'transfer learning', 'interview guide'), ALWAYS choose "retrieve".
-2. If the user query refers to 'the roadmap', 'the document', 'the guide', 'the clusters', or specific internal content, choose "retrieve".
-3. If the user query is a general knowledge question (e.g. "what is photosynthesis", "write python code for fibonacci") completely unrelated to the uploaded documents, choose "direct".
+1. Examine the summaries, topics, and titles of the injected internal documents below. If the user's question touches upon, asks about, or can be answered by any topic, section, cluster, roadmap, concept, or terminology present in the uploaded document summaries, ALWAYS choose "retrieve".
+2. If in doubt whether a topic is covered in the uploaded documents, choose "retrieve" to ensure the answer is grounded in internal documents rather than generic LLM pre-training.
+3. Choose "direct" ONLY for universal world knowledge (e.g. "what is photosynthesis", "capital of Italy", "math problems") that has zero connection to the uploaded documents.
 4. NEVER choose "retrieve" for simple conversational greetings or chit-chat.
 
 Respond with your decision in the exact format:
@@ -56,7 +56,7 @@ MEMORY_PATTERNS = [
 
 
 class RouterNode:
-    """Evaluates the user query to choose the optimal downstream node."""
+    """Evaluates the user query to choose the optimal downstream node using cached summaries."""
 
     def __init__(
         self,
@@ -89,6 +89,7 @@ class RouterNode:
     async def __call__(self, state: AgentState) -> dict[str, Any]:
         """Classify user query and set route in AgentState."""
         query = state.get("query", "").strip()
+        access_level = state.get("access_level", "default")
 
         # 1. Fast-path for greetings / pleasantries to save latency & tokens
         if self._is_conversational_greeting(query):
@@ -104,25 +105,63 @@ class RouterNode:
             )
             return {"route": "memory"}
 
-        # 2. Document catalog hint with summaries so router knows exact topics in injected documents
-
-        # 3. Document catalog hint with summaries so router knows exact topics in injected documents
-        doc_catalog_text = "No internal documents currently uploaded in knowledge base."
+        # 3. Two-Tier Cache Lookup for repeated questions (<10ms)
         try:
-            docs = self.vector_mgr.list_documents()
-            if docs:
-                doc_lines = []
-                for d in docs:
-                    name = d.get("source_name", "Untitled")
-                    summary = d.get("summary", "")
-                    count = d.get("chunk_count", 0)
-                    if summary:
-                        doc_lines.append(f'- Document "{name}" ({count} chunks) | Topics/Excerpts: {summary[:400]}...')
-                    else:
-                        doc_lines.append(f'- Document "{name}" ({count} chunks)')
-                doc_catalog_text = "Injected internal documents and topics available in knowledge base:\n" + "\n".join(doc_lines)
+            cached_entry, hit_type = await self.cache_service.async_lookup(
+                query=query, access_level=access_level
+            )
+            if cached_entry:
+                logger.info(
+                    f"Router found verified cached answer ({hit_type}) for repeated query: '{query}' -> route=cache"
+                )
+                return {"route": "cache"}
         except Exception as e:  # noqa: BLE001
-            logger.debug(f"Router could not list documents: {e}")
+            logger.debug(f"Router cache probe check: {e}")
+
+        # 4. Load high-level document summaries from SQLite cache
+        cached_summaries = self.cache_service.cache_mgr.get_all_document_summaries()
+        doc_catalog_text = "No internal documents currently uploaded in knowledge base."
+        all_topics_set: set[str] = set()
+
+        if cached_summaries:
+            doc_lines = []
+            for d in cached_summaries:
+                name = d.get("source_name", "Untitled")
+                summary = d.get("summary", "")
+                topics = d.get("topics", "")
+                doc_lines.append(
+                    f'- Document: "{name}"\n  Topics: {topics}\n  Summary: {summary}'
+                )
+                for t in topics.split(","):
+                    t_clean = t.strip().lower()
+                    if len(t_clean) > 3:
+                        all_topics_set.add(t_clean)
+            doc_catalog_text = "INJECTED INTERNAL DOCUMENTS & TOPICS:\n" + "\n".join(doc_lines)
+        else:
+            # Fallback to vector store document list if cache empty
+            try:
+                docs = self.vector_mgr.list_documents()
+                if docs:
+                    doc_lines = []
+                    for d in docs:
+                        name = d.get("source_name", "Untitled")
+                        summary = d.get("summary", "")
+                        count = d.get("chunk_count", 0)
+                        doc_lines.append(f'- Document "{name}" ({count} chunks) | Topics: {summary}')
+                    doc_catalog_text = "INJECTED INTERNAL DOCUMENTS & TOPICS:\n" + "\n".join(doc_lines)
+            except Exception as e:  # noqa: BLE001
+                logger.debug(f"Router could not list documents: {e}")
+
+        # 5. Programmatic topic overlap fast-path:
+        # If query explicitly contains a key topic phrase from the uploaded documents, route to retrieve immediately
+        query_lower = query.lower()
+        if all_topics_set:
+            for topic in all_topics_set:
+                if (len(topic) > 4 and topic in query_lower) or (len(query_lower) > 4 and query_lower in topic):
+                    logger.info(
+                        f"Router fast-path matched document topic '{topic}' in query '{query}' -> route=retrieve"
+                    )
+                    return {"route": "retrieve"}
 
         # Prepare router prompt with history context if present
         history_summary = ""

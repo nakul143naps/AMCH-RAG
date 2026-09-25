@@ -124,6 +124,20 @@ class IngestionPipeline:
         # 6. Invalidate relevant caches
         self.cache_mgr.clear()
 
+        # 7. Generate and cache high-level document summary for summary-guided routing
+        try:
+            sections = [c.section for c in chunks if getattr(c, "section", None)]
+            sample_texts = [c.content[:400] for c in chunks[:5]]
+            from app.ingestion.summarizer import DocumentSummarizer
+
+            summarizer = DocumentSummarizer.get_instance()
+            summary, topics = summarizer.generate_heuristic_summary(
+                source, sections, sample_texts
+            )
+            self.cache_mgr.set_document_summary(doc_id, source, summary, topics)
+        except Exception as ex:  # noqa: BLE001
+            logger.warning(f"Could not index document summary: {ex}")
+
         return ProcessedDocument(
             doc_id=doc_id,
             source=source,
@@ -202,6 +216,20 @@ class IngestionPipeline:
         )
 
         self.cache_mgr.clear()
+
+        # Cache high-level document summary for summary-guided routing
+        try:
+            sections = [c.section for c in chunks if getattr(c, "section", None)]
+            sample_texts = [c.content[:400] for c in chunks[:5]]
+            from app.ingestion.summarizer import DocumentSummarizer
+
+            summarizer = DocumentSummarizer.get_instance()
+            summary, topics = summarizer.generate_heuristic_summary(
+                clean_url, sections, sample_texts
+            )
+            self.cache_mgr.set_document_summary(doc_id, clean_url, summary, topics)
+        except Exception as ex:  # noqa: BLE001
+            logger.warning(f"Could not index document summary: {ex}")
 
         return ProcessedDocument(
             doc_id=doc_id,
