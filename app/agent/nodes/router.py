@@ -12,13 +12,18 @@ from app.retrieval.vector_store import VectorStoreManager
 logger = logging.getLogger(__name__)
 
 ROUTER_SYSTEM_INSTRUCTION = """You are an intelligent Self-RAG routing agent deciding whether document retrieval is actually necessary.
-Analyze the user query, the conversation context, and the list of available uploaded documents.
+Analyze the user query, the conversation context, and the list of available uploaded documents and their topics.
 Decide the optimal execution route:
 
 - "direct": General knowledge questions, concepts, definitions, explanations, math, programming, general world facts, or advice that do NOT require looking up internal enterprise documents (e.g. "what are transformers", "what is machine learning", "explain photosynthesis", "write python code for fibonacci"). The LLM can answer these directly from its pre-trained knowledge without slow retrieval loops.
-- "retrieve": Questions specifically asking for information from uploaded files, internal company documents, proprietary policies, financial reports, or when the user's question relates to the available uploaded internal documents.
+- "retrieve": Questions specifically asking for information from uploaded files, internal company documents, proprietary policies, financial reports, or when the user's question relates to the available uploaded internal documents or their topics.
 - "cache": Any greeting, salutation, or chit-chat (e.g. "hi", "hello", "hey", "how are you", "who are you").
 - "memory": Questions answerable purely from known user profile facts or previous conversation history (e.g. "what did I ask earlier", "what is my name").
+
+CRITICAL SELF-RAG RULES:
+1. Examine the summary and key topics of the injected documents below. If the query asks about any topic covered by the uploaded internal documents (even if the user does not explicitly say 'from the document'), choose "retrieve".
+2. If the user query is a general question, casual question, or conceptual definition unrelated to the uploaded documents, choose "direct". Do NOT retrieve.
+3. NEVER choose "retrieve" for simple greetings or broad general knowledge that has nothing to do with the uploaded documents.
 
 Respond with your decision in the exact format:
 ROUTE: <direct|retrieve|cache|memory>
@@ -34,6 +39,16 @@ GREETING_PATTERNS = [
     r"^(thank\s*you|thanks|thx|cheers|ty)\b",
     r"^(who\s+are\s+you|what\s+are\s+you|what\s+can\s+you\s+do|help(\s+me)?)\b",
     r"^how\s+(are\s+you|are\s+things|is\s+it\s+going|do\s+you\s+do)\b",
+]
+
+MEMORY_PATTERNS = [
+    r"what\s+(was|were)\s+(my|the)\s+(first|last|previous|earlier)\s+question",
+    r"what\s+did\s+i\s+(just\s+)?(ask|say)",
+    r"who\s+am\s+i\b",
+    r"what\s+is\s+my\s+name\b",
+    r"what\s+did\s+we\s+(talk|discuss)\s+about",
+    r"repeat\s+what\s+(i|you)\s+said",
+    r"summarize\s+(our|the)\s+(chat|conversation)",
 ]
 
 
@@ -60,6 +75,14 @@ class RouterNode:
                 return True
         return False
 
+    def _is_memory_query(self, query: str) -> bool:
+        """Check if query specifically asks about past turns or user identity."""
+        normalized = query.strip().lower()
+        for pattern in MEMORY_PATTERNS:
+            if re.search(pattern, normalized):
+                return True
+        return False
+
     async def __call__(self, state: AgentState) -> dict[str, Any]:
         """Classify user query and set route in AgentState."""
         query = state.get("query", "").strip()
@@ -70,6 +93,13 @@ class RouterNode:
                 f"Router fast-path matched greeting for: '{query}' -> route=cache"
             )
             return {"route": "cache"}
+
+        # 2. Fast-path for conversational memory / dialogue history questions
+        if self._is_memory_query(query):
+            logger.info(
+                f"Router matched conversational memory pattern for: '{query}' -> route=memory"
+            )
+            return {"route": "memory"}
 
         # 2. Fast-path check: Is this query or an equivalent semantic query already in the cache?
         try:
@@ -84,13 +114,21 @@ class RouterNode:
         except Exception as e:  # noqa: BLE001
             logger.debug(f"Router cache probe exception: {e}")
 
-        # 3. Document catalog hint so router knows what documents exist
+        # 3. Document catalog hint with summaries so router knows exact topics in injected documents
         doc_catalog_text = "No internal documents currently uploaded in knowledge base."
         try:
             docs = self.vector_mgr.list_documents()
             if docs:
-                doc_titles = [d.get("source_name") for d in docs if d.get("source_name")]
-                doc_catalog_text = f"Uploaded internal documents available: {doc_titles}"
+                doc_lines = []
+                for d in docs:
+                    name = d.get("source_name", "Untitled")
+                    summary = d.get("summary", "")
+                    count = d.get("chunk_count", 0)
+                    if summary:
+                        doc_lines.append(f'- Document "{name}" ({count} chunks) | Topics/Excerpts: {summary[:250]}...')
+                    else:
+                        doc_lines.append(f'- Document "{name}" ({count} chunks)')
+                doc_catalog_text = "Injected internal documents and topics available in knowledge base:\n" + "\n".join(doc_lines)
         except Exception as e:  # noqa: BLE001
             logger.debug(f"Router could not list documents: {e}")
 

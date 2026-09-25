@@ -291,6 +291,7 @@ class VectorStoreManager:
             return []
 
         docs_map: dict[str, dict[str, Any]] = {}
+        snippets_map: dict[str, list[str]] = {}
         for pt in points:
             if not pt.payload:
                 continue
@@ -306,8 +307,20 @@ class VectorStoreManager:
                     "version": pt.payload.get("version", 1),
                     "chunk_count": 0,
                     "created_at": pt.payload.get("created_at"),
+                    "summary": "",
                 }
+                snippets_map[doc_id] = []
             docs_map[doc_id]["chunk_count"] += 1
+
+            content = (pt.payload.get("content") or "").strip()
+            if content and len(snippets_map[doc_id]) < 4:
+                first_words = " ".join(content.split()[:25])
+                if first_words not in snippets_map[doc_id]:
+                    snippets_map[doc_id].append(first_words)
+
+        for doc_id, doc_info in docs_map.items():
+            if snippets_map.get(doc_id):
+                doc_info["summary"] = " | ".join(snippets_map[doc_id])
 
         return list(docs_map.values())
 

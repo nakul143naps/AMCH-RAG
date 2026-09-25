@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     )
     EXACT_CACHE_TTL_SECONDS: int = 86400  # 24 hours
     SEMANTIC_CACHE_THRESHOLD: float = (
-        0.90  # Cosine similarity threshold for semantic hit
+        0.82  # Cosine similarity threshold for semantic hit
     )
 
     # Agent Control & Bounds

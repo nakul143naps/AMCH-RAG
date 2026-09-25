@@ -32,6 +32,7 @@ class DocumentItem(BaseModel):
     chunk_count: int
     version: int = 1
     created_at: str | None = None
+    summary: str | None = None
 
 
 class DocumentListResponse(BaseModel):

@@ -61,7 +61,41 @@ class AgentService:
         else:
             config["configurable"] = {"thread_id": "default_session"}
 
+        # Preserve and accumulate multi-turn conversation history
+        prior_messages = list(chat_history or [])
+        try:
+            checkpoint = self.graph.get_state(config)
+            if checkpoint and checkpoint.values:
+                existing_msgs = checkpoint.values.get("chat_history", [])
+                if existing_msgs and not prior_messages:
+                    prior_messages = list(existing_msgs)
+        except Exception as e:  # noqa: BLE001
+            logger.debug(f"Could not load checkpoint state: {e}")
+
+        from langchain_core.messages import AIMessage, HumanMessage
+
+        updated_history = prior_messages + [HumanMessage(content=query)]
+
+        initial_state = create_initial_state(
+            query=query,
+            trace_id=trace_id or str(uuid.uuid4()),
+            chat_history=updated_history,
+            user_id=user_id,
+            access_level=access_level,
+        )
+
         final_state = await self.graph.ainvoke(initial_state, config=config)
+
+        # Append assistant turn to chat history and persist into checkpointer
+        final_answer = final_state.get("final_answer")
+        if final_answer:
+            try:
+                persisted_history = updated_history + [AIMessage(content=final_answer)]
+                final_state["chat_history"] = persisted_history
+                self.graph.update_state(config, {"chat_history": persisted_history})
+            except Exception as e:  # noqa: BLE001
+                logger.debug(f"Could not update checkpointer history: {e}")
+
         return final_state
 
     async def answer(self, request: QueryRequest) -> QueryResponse:

@@ -54,9 +54,9 @@ def cache_decision(state: AgentState) -> Literal["__end__", "memory"]:
 def memory_decision(state: AgentState) -> Literal["retrieve", "generate"]:
     """Self-RAG Adaptive Retrieval: check whether retrieval is necessary or answer directly."""
     route = state.get("route")
-    if route == "direct":
+    if route in ("direct", "memory"):
         logger.info(
-            f"Self-RAG: Adaptive decision determined NO retrieval needed for: '{state.get('query')}' -> direct generation"
+            f"Self-RAG: Adaptive decision determined NO retrieval needed for: '{state.get('query')}' (route: {route}) -> direct generation"
         )
         return "generate"
     return "retrieve"
@@ -87,7 +87,17 @@ def crag_decision(state: AgentState) -> Literal["generate", "rewrite", "web_sear
         )
         return "rewrite"
 
-    # Correction attempts exhausted: fallback to external web search if enabled
+    # Correction attempts exhausted:
+    # If the user explicitly asked from the uploaded document/PDF, do not search the web.
+    query = (state.get("query") or "").lower()
+    explicit_doc_phrases = ["in the pdf", "in the document", "from the document", "uploaded file", "uploaded pdf", "in this document", "in this file"]
+    if any(phrase in query for phrase in explicit_doc_phrases):
+        logger.info(
+            "CRAG decision: query explicitly targets an internal document -> routing to generate (avoiding web search)"
+        )
+        return "generate"
+
+    # Fallback to external web search if enabled
     if settings.ENABLE_WEB_SEARCH_FALLBACK:
         logger.info(
             f"CRAG decision: correction attempts exhausted ({attempts}/{max_attempts}) -> routing to web_search"

@@ -11,11 +11,11 @@ from app.retrieval.models import RetrievedChunk
 
 logger = logging.getLogger(__name__)
 
-GRADER_SYSTEM_INSTRUCTION = """You are an expert relevance evaluator for an enterprise RAG system.
-Evaluate whether the retrieved passage contains facts or context that help answer the user's question.
-Be objective. If the passage is completely off-topic or irrelevant, mark it irrelevant.
-If it partially addresses the question or provides useful background, mark it ambiguous.
-If it directly provides information to answer the question, mark it relevant.
+GRADER_SYSTEM_INSTRUCTION = """You are an objective relevance evaluator for an enterprise RAG assistant.
+Evaluate whether the retrieved passage contains facts, concepts, or context related to the user's question.
+- Mark 'relevant' if the passage directly answers or provides substantive facts regarding the question.
+- Mark 'ambiguous' if the passage provides related background context, topic mentions, or comes from the specific document the user is inquiring about.
+- Mark 'irrelevant' ONLY if the passage is completely off-topic and has no relation to the question or the document topic.
 
 Respond in this exact format:
 GRADE: <relevant|ambiguous|irrelevant>
@@ -30,10 +30,16 @@ class GradeNode:
 
     async def _grade_single_chunk(self, query: str, chunk: RetrievedChunk) -> GradeType:
         """Evaluate a single chunk's relevance against the query."""
+        source_desc = f"Document: {chunk.source}"
+        if chunk.section:
+            source_desc += f", Section: {chunk.section}"
+        if chunk.page is not None:
+            source_desc += f", Page: {chunk.page}"
+
         prompt = (
-            f"Question: {query}\n\n"
-            f"Retrieved passage:\n{chunk.content.strip()[:1000]}\n\n"
-            "Does this passage contain information that helps answer the question?"
+            f"User Question: {query}\n\n"
+            f"Context Passage ({source_desc}):\n{chunk.content.strip()[:1000]}\n\n"
+            "Does this passage contain facts, concepts, or context related to the user's question?"
         )
 
         try:
@@ -75,8 +81,14 @@ class GradeNode:
 
         logger.info(f"GradeNode evaluating {len(chunks)} chunks for query: '{query}'")
 
-        # Concurrently grade all candidate chunks
-        tasks = [self._grade_single_chunk(query, chunk) for chunk in chunks]
+        # Concurrently grade candidates with a concurrency semaphore (max 2) to prevent provider burst limits
+        sem = asyncio.Semaphore(2)
+
+        async def sem_grade(chunk: RetrievedChunk) -> GradeType:
+            async with sem:
+                return await self._grade_single_chunk(query, chunk)
+
+        tasks = [sem_grade(c) for c in chunks]
         grades = await asyncio.gather(*tasks)
 
         logger.info(f"GradeNode assigned grades: {list(grades)}")
@@ -86,6 +98,21 @@ class GradeNode:
         for chunk, grade in zip(chunks, grades):
             if grade in ("relevant", "ambiguous"):
                 filtered_chunks.append(chunk)
+
+        # Self-RAG safeguard: If all chunks were scored irrelevant, but they came from an internal document
+        # whose title or source matches keywords in the user query, retain the top cross-encoder chunk(s)
+        # to ensure we answer strictly from the document rather than prematurely triggering web search.
+        if not filtered_chunks and chunks:
+            query_lower = query.lower()
+            matching_source_chunks = [
+                c for c in chunks
+                if any(w in query_lower for w in c.source.lower().replace(".pdf", "").replace(".docx", "").replace(".txt", "").split() if len(w) > 3)
+            ]
+            if matching_source_chunks:
+                logger.info(
+                    f"GradeNode: All chunks were scored irrelevant, but {len(matching_source_chunks)} chunks match document title '{matching_source_chunks[0].source}'. Retaining top chunk."
+                )
+                filtered_chunks = [matching_source_chunks[0]]
 
         # If some were relevant/ambiguous, retain them; otherwise leave filtered_chunks empty
         return {

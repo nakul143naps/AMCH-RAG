@@ -87,12 +87,22 @@ class GenerateNode:
 
         # Zero-token guard for empty retrieval
         if not chunks:
-            # Self-RAG: Direct generation path for general queries that need no retrieval
-            if state.get("route") == "direct":
+            # Self-RAG: Direct generation path for general or memory queries that need no retrieval
+            if state.get("route") in ("direct", "memory"):
                 logger.info(
-                    f"GenerateNode generating direct answer without retrieval for: '{query}'"
+                    f"GenerateNode generating direct answer without retrieval for: '{query}' (route: {state.get('route')})"
                 )
                 prompt_parts = []
+                chat_history = state.get("chat_history", [])
+                if chat_history:
+                    prior_turns = chat_history[:-1] if getattr(chat_history[-1], 'content', '') == query else chat_history
+                    if prior_turns:
+                        history_lines = [
+                            f"{'User' if getattr(m, 'type', None) == 'human' else 'Assistant'}: {getattr(m, 'content', str(m))}"
+                            for m in prior_turns[-20:]
+                        ]
+                        prompt_parts.append("Recent Conversation History:\n" + "\n".join(history_lines))
+
                 memory_context = state.get("memory_context")
                 if memory_context:
                     prompt_parts.append(f"User & Conversation Memory:\n{memory_context.strip()}")
