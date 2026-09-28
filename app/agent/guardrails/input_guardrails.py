@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 # Prompt injection signatures covering direct and indirect attacks
 INJECTION_PATTERNS = [
     r"(?i)\b(ignore|disregard|forget|override)\s+(all\s+)?(previous|prior|system|earlier)\s+(instructions|prompts|directions|rules)\b",
-    r"(?i)\b(you are now|act as|pretend to be)\s+(dan|developer mode|unrestricted|jailbroken|evil ai)\b",
+    r"(?i)\b(you are now|act as|pretend\s+(to be|you are)|switch to)\s+(dan|developer mode|unrestricted|jailbroken|evil ai)\b",
+    r"(?i)\b(dan\s+mode|jailbreak|jailbroken)\b",
     r"(?i)\b(reveal|show|print|output|display|echo)\s+(your\s+)?(system\s+prompt|initial\s+prompt|developer\s+instruction|internal\s+instructions)\b",
     r"(?i)\b(bypass|disable)\s+(all\s+)?(safety|security|content\s+filters|guardrails)\b",
     r"(?i)\[system\s+override\]",
