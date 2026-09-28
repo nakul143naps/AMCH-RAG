@@ -107,6 +107,10 @@ class ModelGateway:
                 logger.warning(
                     f"ModelGateway: Circuit breaker for {provider_name} is OPEN. Bypassing provider."
                 )
+                if last_error is None:
+                    last_error = RuntimeError(
+                        f"Circuit breaker for {provider_name} is in cooldown (OPEN). Please wait ~30s for recovery."
+                    )
                 continue
 
             for attempt in range(max_retries_per_provider):

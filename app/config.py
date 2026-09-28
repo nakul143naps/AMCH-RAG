@@ -27,11 +27,11 @@ class Settings(BaseSettings):
         default="", description="Google AI Studio / Gemini API Key"
     )
     GEMINI_GENERATION_MODEL: str = Field(
-        default="gemini-3.8-flash",
+        default="gemini-3.5-flash",
         description="Fast multimodal model for generation, routing, grading, rewriting",
     )
     GEMINI_PRO_MODEL: str = Field(
-        default="gemini-3.8-flash",
+        default="gemini-3.5-flash",
         description="Deep reasoning model for high-stakes generation & self-check",
     )
 
@@ -49,7 +49,7 @@ class Settings(BaseSettings):
         description="OpenRouter free model endpoint",
     )
 
-    PROVIDER_PRIORITY: list[str] = ["gemini", "groq", "openrouter"]
+    PROVIDER_PRIORITY: list[str] = ["groq", "gemini", "openrouter"]
 
     # Embeddings & Reranker (Fixed & Local for 100% zero-cost and crash resilience)
     EMBEDDING_MODEL: str = Field(

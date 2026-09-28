@@ -59,19 +59,32 @@ class GeminiProvider(BaseLLMProvider):
             raise RuntimeError("Gemini API key is not configured.")
 
         model = model_override or self.settings.GEMINI_GENERATION_MODEL
+        if "2.5" in model:
+            model = "gemini-3.5-flash"
+
         config = {
             "temperature": temperature,
         }
         if system_instruction:
             config["system_instruction"] = system_instruction
 
-        # In google-genai SDK:
-        response = self.client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=config,
-        )
-        return response.text or ""
+        try:
+            response = self.client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=config,
+            )
+            return response.text or ""
+        except Exception as e:
+            err_str = str(e).lower()
+            if "not found" in err_str or "no longer available" in err_str:
+                response = self.client.models.generate_content(
+                    model="gemini-3.5-flash",
+                    contents=prompt,
+                    config=config,
+                )
+                return response.text or ""
+            raise
 
 
 class GroqProvider(BaseLLMProvider):
@@ -101,6 +114,9 @@ class GroqProvider(BaseLLMProvider):
             raise RuntimeError("Groq API key is not configured.")
 
         model = model_override or self.settings.GROQ_MODEL
+        if "llama-3.3-70b" in model:
+            model = "qwen/qwen3.8-27b"
+
         messages = []
         if system_instruction:
             messages.append({"role": "system", "content": system_instruction})
