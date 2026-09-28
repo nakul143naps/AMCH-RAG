@@ -17,6 +17,7 @@ import {
   Database,
   Trash2,
   RefreshCw,
+  Paperclip,
 } from 'lucide-react'
 
 const STORAGE_KEY = 'amch_chat_sessions'
@@ -535,44 +536,92 @@ export const UserAssistant: React.FC = () => {
               {/* Starter Question Cards (prominently displayed before messages) */}
               {messages.length === 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full text-left">
-                  <button
-                    onClick={() => handleSendMessage('Summarize the 9 AI Engineer clusters in the roadmap')}
-                    className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
-                      <Compass className="w-4 h-4 text-indigo-500" />
-                      <span>Study Roadmap</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 leading-normal">
-                      Explore the 9 key clusters from the AI Engineer guide
-                    </p>
-                  </button>
+                  {documentCount === 0 ? (
+                    <>
+                      <button
+                        onClick={() => {
+                          const fileInput = document.getElementById('chat-file-upload') as HTMLInputElement
+                          if (fileInput) fileInput.click()
+                        }}
+                        className="p-4 rounded-2xl bg-indigo-50/70 hover:bg-indigo-100/70 border border-indigo-200/90 shadow-xs hover:border-indigo-400 hover:shadow-sm transition-all text-left group cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 text-xs font-semibold text-indigo-700 group-hover:text-indigo-800 mb-1">
+                          <Paperclip className="w-4 h-4 text-indigo-600" />
+                          <span>Upload Knowledge</span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 leading-normal">
+                          Upload your PDF, DOCX, or notes to query with hybrid RAG
+                        </p>
+                      </button>
 
-                  <button
-                    onClick={() => handleSendMessage('Explain inductive vs transductive transfer learning in detail')}
-                    className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
-                      <BookOpen className="w-4 h-4 text-indigo-500" />
-                      <span>Transfer Learning</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 leading-normal">
-                      Deep dive into fine-tuning, inductive, and adaptation
-                    </p>
-                  </button>
+                      <button
+                        onClick={() => handleSendMessage('Explain how AMCH-RAG hybrid search, FlashRank, and Self-RAG work together')}
+                        className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
+                          <Sparkles className="w-4 h-4 text-indigo-500" />
+                          <span>System Architecture</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-normal">
+                          Deep dive into BM25 + Dense Qdrant and self-reflective gates
+                        </p>
+                      </button>
 
-                  <button
-                    onClick={() => handleSendMessage('What is the standard starting dosage of lisinopril?')}
-                    className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
-                      <Heart className="w-4 h-4 text-indigo-500" />
-                      <span>Quick Facts</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 leading-normal">
-                      Ask quick fact-checked questions or clinical references
-                    </p>
-                  </button>
+                      <button
+                        onClick={() => handleSendMessage('What are the key technical concepts and clusters of AI Engineering?')}
+                        className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
+                          <Compass className="w-4 h-4 text-indigo-500" />
+                          <span>AI Engineering</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-normal">
+                          Ask general AI, LLM router, or agentic workflow questions
+                        </p>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleSendMessage('Summarize the 9 AI Engineer clusters in the roadmap')}
+                        className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
+                          <Compass className="w-4 h-4 text-indigo-500" />
+                          <span>Study Roadmap</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-normal">
+                          Explore the 9 key clusters from the AI Engineer guide
+                        </p>
+                      </button>
+
+                      <button
+                        onClick={() => handleSendMessage('Explain inductive vs transductive transfer learning in detail')}
+                        className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
+                          <BookOpen className="w-4 h-4 text-indigo-500" />
+                          <span>Transfer Learning</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-normal">
+                          Deep dive into fine-tuning, inductive, and adaptation
+                        </p>
+                      </button>
+
+                      <button
+                        onClick={() => handleSendMessage('What is the standard starting dosage of lisinopril?')}
+                        className="p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left group cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 group-hover:text-indigo-600 mb-1">
+                          <Heart className="w-4 h-4 text-indigo-500" />
+                          <span>Quick Facts</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-normal">
+                          Ask quick fact-checked questions or clinical references
+                        </p>
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -609,6 +658,7 @@ export const UserAssistant: React.FC = () => {
           isLoading={isLoading}
           onStop={handleStop}
           onUploadFile={handleUploadFile}
+          documentCount={documentCount}
         />
       </div>
 

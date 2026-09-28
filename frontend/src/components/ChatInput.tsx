@@ -6,13 +6,21 @@ interface ChatInputProps {
   isLoading: boolean
   onStop?: () => void
   onUploadFile?: (file: File) => Promise<void>
+  documentCount?: number
 }
 
-const DEFAULT_SUGGESTIONS = [
+const EMPTY_CORPUS_SUGGESTIONS = [
+  'Explain AMCH-RAG hybrid architecture',
+  'What is Dense + Sparse BM25 retrieval?',
+  'How does Self-RAG groundedness work?',
+  'What are key skills for an AI Engineer?',
+]
+
+const POPULATED_CORPUS_SUGGESTIONS = [
+  'Summarize uploaded documents',
+  'What are the main topics covered?',
+  'Explain key methodologies in the files',
   'Summarize the AI Engineer roadmap',
-  'What are the 9 clusters in the guide?',
-  'Explain transfer learning in detail',
-  'What is the standard starting dosage of lisinopril?',
 ]
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -20,7 +28,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   isLoading,
   onStop,
   onUploadFile,
+  documentCount = 0,
 }) => {
+  const suggestions = documentCount === 0 ? EMPTY_CORPUS_SUGGESTIONS : POPULATED_CORPUS_SUGGESTIONS
   const [query, setQuery] = useState('')
   const [isUploading, setIsUploading] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -67,7 +77,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       <div className="max-w-3xl mx-auto space-y-2.5">
         {/* Suggestion Chips */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs no-scrollbar">
-          {DEFAULT_SUGGESTIONS.map((sug, idx) => (
+          {suggestions.map((sug, idx) => (
             <button
               key={idx}
               type="button"
@@ -109,6 +119,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             </button>
             <input
               ref={fileInputRef}
+              id="chat-file-upload"
               type="file"
               onChange={handleFileChange}
               className="hidden"

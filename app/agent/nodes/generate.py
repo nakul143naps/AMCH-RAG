@@ -35,9 +35,25 @@ class GenerateNode:
         self,
         gateway: ModelGateway | None = None,
         cache_service: TwoTierCacheService | None = None,
+        vector_mgr: Any | None = None,
     ) -> None:
         self.gateway = gateway or ModelGateway.get_instance()
         self.cache_service = cache_service or TwoTierCacheService.get_instance()
+        self.vector_mgr = vector_mgr
+
+    def _has_uploaded_documents(self) -> bool:
+        """Check if any documents have been uploaded to the vector store or SQLite cache."""
+        try:
+            if not self.vector_mgr:
+                from app.retrieval.vector_store import VectorStoreManager
+                self.vector_mgr = VectorStoreManager.get_instance()
+            docs = self.vector_mgr.list_documents()
+            if docs:
+                return True
+            cached = self.cache_service.cache_mgr.get_all_document_summaries()
+            return len(cached) > 0
+        except Exception:
+            return False
 
     def _format_context(
         self, chunks: list[RetrievedChunk]
@@ -88,10 +104,12 @@ class GenerateNode:
 
         # Zero-token guard for empty retrieval
         if not chunks:
-            # Self-RAG: Direct generation path for general or memory queries that need no retrieval
-            if state.get("route") in ("direct", "memory"):
+            has_docs = self._has_uploaded_documents()
+
+            # Self-RAG: Direct generation path for general or memory queries, or when knowledge base has 0 docs
+            if state.get("route") in ("direct", "memory") or not has_docs:
                 logger.info(
-                    f"GenerateNode generating direct answer without retrieval for: '{query}' (route: {state.get('route')})"
+                    f"GenerateNode generating direct answer for: '{query}' (route: {state.get('route')}, has_docs: {has_docs})"
                 )
                 prompt_parts = []
                 chat_history = state.get("chat_history", [])
@@ -116,6 +134,12 @@ class GenerateNode:
                     system_instruction=DIRECT_SYSTEM_INSTRUCTION,
                 )
                 clean_answer = answer_text.strip()
+                if not has_docs and state.get("route") != "memory":
+                    clean_answer = (
+                        "> ℹ️ **Notice:** The knowledge base currently contains **0 uploaded documents**. "
+                        "You can upload PDFs or notes anytime using the **📎 paperclip icon** or the **Docs** button at the top.\n\n"
+                        + clean_answer
+                    )
 
                 try:
                     await self.cache_service.async_store(
@@ -142,7 +166,10 @@ class GenerateNode:
             if state.get("web_results") is not None:
                 no_info_msg = "I could not find any relevant information in the internal knowledge base or external web search to answer your question."
             else:
-                no_info_msg = "I could not find any relevant information in the knowledge base to answer your question."
+                no_info_msg = (
+                    "I could not find any relevant information in the uploaded documents to answer your question. "
+                    "Try rephrasing or uploading additional documents using the 📎 paperclip icon."
+                )
             return {
                 "draft_answer": no_info_msg,
                 "final_answer": no_info_msg,

@@ -122,6 +122,7 @@ class RouterNode:
         cached_summaries = self.cache_service.cache_mgr.get_all_document_summaries()
         doc_catalog_text = "No internal documents currently uploaded in knowledge base."
         all_topics_set: set[str] = set()
+        total_docs_count = len(cached_summaries) if cached_summaries else 0
 
         if cached_summaries:
             doc_lines = []
@@ -142,6 +143,7 @@ class RouterNode:
             try:
                 docs = self.vector_mgr.list_documents()
                 if docs:
+                    total_docs_count = len(docs)
                     doc_lines = []
                     for d in docs:
                         name = d.get("source_name", "Untitled")
@@ -151,6 +153,13 @@ class RouterNode:
                     doc_catalog_text = "INJECTED INTERNAL DOCUMENTS & TOPICS:\n" + "\n".join(doc_lines)
             except Exception as e:  # noqa: BLE001
                 logger.debug(f"Router could not list documents: {e}")
+
+        # If zero documents are uploaded to the knowledge base, route directly to direct LLM generation
+        if total_docs_count == 0:
+            logger.info(
+                f"Router detected 0 uploaded documents in system -> routing query '{query}' to 'direct'"
+            )
+            return {"route": "direct"}
 
         # 5. Programmatic topic overlap fast-path:
         # If query explicitly contains a key topic phrase from the uploaded documents, route to retrieve immediately
