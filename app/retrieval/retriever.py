@@ -35,8 +35,8 @@ class HybridRetriever:
         "admin": ["admin", "confidential", "internal", "default", "public"],
         "confidential": ["confidential", "internal", "default", "public"],
         "internal": ["internal", "default", "public"],
-        "default": ["default", "public"],
-        "public": ["public"],
+        "default": ["default", "public", "internal"],
+        "public": ["public", "default"],
     }
 
     def _build_filter(

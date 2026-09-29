@@ -206,6 +206,7 @@ export const UserAssistant: React.FC = () => {
           session_id: activeSessionId,
           user_id: 'personal_user',
           stream: true,
+          access_level: 'default',
         }),
         signal: abortControllerRef.current.signal,
       })
@@ -357,7 +358,7 @@ export const UserAssistant: React.FC = () => {
   const handleUploadFile = async (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('access_level', 'internal')
+    formData.append('access_level', 'default')
 
     try {
       setStatusNotice(`Uploading "${file.name}" to AMCH-RAG knowledge corpus...`)

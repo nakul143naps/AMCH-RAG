@@ -78,7 +78,7 @@ export const DocumentManagerModal: React.FC<DocumentManagerModalProps> = ({
     setUploadStatus(`Uploading "${file.name}"...`)
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('access_level', 'internal')
+    formData.append('access_level', 'default')
 
     try {
       const res = await fetch('/ingest', {
