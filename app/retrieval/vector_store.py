@@ -1,6 +1,10 @@
 """Vector store management for AMCH-RAG using Qdrant (local embedded or remote server)."""
 
+import logging
 import os
+from pathlib import Path
+import subprocess
+import time
 import uuid
 from typing import Any, Optional
 
@@ -26,6 +30,8 @@ from app.config import get_settings
 from app.ingestion.models import ChunkPayload
 from app.retrieval.embeddings import SparseVectorData
 
+logger = logging.getLogger(__name__)
+
 
 class VectorStoreManager:
     """Manages Qdrant client connection, collections, and vector upsert operations."""
@@ -50,7 +56,57 @@ class VectorStoreManager:
 
         settings = get_settings()
         if settings.QDRANT_URL:
-            self._client = QdrantClient(url=settings.QDRANT_URL)
+            connected = False
+            # Check if Qdrant is already listening
+            try:
+                candidate = QdrantClient(url=settings.QDRANT_URL, timeout=2.0, check_compatibility=False)
+                candidate.get_collections()
+                self._client = candidate
+                connected = True
+            except Exception:
+                connected = False
+
+            # If not responding, auto-launch local binary if present
+            if not connected:
+                bin_name = "qdrant.exe" if os.name == "nt" else "qdrant"
+                candidate_paths = [
+                    Path("bin") / bin_name,
+                    Path(__file__).resolve().parent.parent.parent / "bin" / bin_name,
+                ]
+                bin_path = next((p for p in candidate_paths if p.exists()), None)
+                if bin_path:
+                    try:
+                        logger.info("Auto-launching local Qdrant server from %s...", bin_path)
+                        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" else 0
+                        subprocess.Popen(
+                            [str(bin_path.resolve())],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            creationflags=flags,
+                        )
+                        for _ in range(12):
+                            time.sleep(1)
+                            try:
+                                candidate = QdrantClient(url=settings.QDRANT_URL, timeout=2.0, check_compatibility=False)
+                                candidate.get_collections()
+                                self._client = candidate
+                                connected = True
+                                logger.info("Connected to auto-started Qdrant server at %s", settings.QDRANT_URL)
+                                break
+                            except Exception:
+                                pass
+                    except Exception as e:
+                        logger.warning("Could not auto-launch Qdrant binary: %s", e)
+
+            # Fallback to local embedded storage if server is still unavailable
+            if not connected:
+                logger.warning(
+                    "Qdrant server at %s unreachable; falling back to embedded storage at %s",
+                    settings.QDRANT_URL,
+                    settings.QDRANT_PATH,
+                )
+                os.makedirs(settings.QDRANT_PATH, exist_ok=True)
+                self._client = QdrantClient(path=settings.QDRANT_PATH)
         else:
             os.makedirs(settings.QDRANT_PATH, exist_ok=True)
             self._client = QdrantClient(path=settings.QDRANT_PATH)
