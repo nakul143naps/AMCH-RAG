@@ -1,10 +1,12 @@
 """Tests for ingestion API routes."""
 
 import io
+from types import SimpleNamespace
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.api import routes_ingest
 from app.main import app
 
 
@@ -47,6 +49,22 @@ async def test_ingest_unsupported_file_type():
         response = await client.post("/ingest", files=files)
         assert response.status_code == 400
         assert "Unsupported file type" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_ingest_rejects_file_over_configured_size(monkeypatch):
+    monkeypatch.setattr(
+        routes_ingest,
+        "get_settings",
+        lambda: SimpleNamespace(MAX_UPLOAD_SIZE_BYTES=8),
+    )
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        files = {"file": ("too_large.txt", io.BytesIO(b"123456789"), "text/plain")}
+        response = await client.post("/ingest", files=files)
+
+    assert response.status_code == 413
+    assert "maximum upload size of 8 bytes" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

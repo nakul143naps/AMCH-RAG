@@ -2,7 +2,6 @@
 
 import logging
 import os
-import shutil
 import uuid
 from pathlib import Path
 
@@ -16,6 +15,7 @@ from fastapi import (
     status,
 )
 
+from app.config import get_settings
 from app.ingestion.models import IngestJob, IngestUrlRequest
 from app.ingestion.pipeline import IngestionPipeline, JobStore
 from app.retrieval.vector_store import VectorStoreManager
@@ -85,7 +85,8 @@ async def ingest_document(
     access_level: str = Form(default="default"),
 ) -> IngestJob:
     """Upload a document file (TXT, MD, PDF, DOCX, PPTX, CSV, HTML) for asynchronous ingestion into Qdrant."""
-    filename = file.filename or "unknown.txt"
+    filename = Path((file.filename or "unknown.txt").replace("\\", "/")).name
+    filename = filename or "unknown.txt"
     ext = Path(filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -96,8 +97,26 @@ async def ingest_document(
     job_id = str(uuid.uuid4())
     temp_file_path = UPLOAD_DIR / f"{job_id}_{filename}"
 
-    with open(temp_file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    max_upload_size = get_settings().MAX_UPLOAD_SIZE_BYTES
+    uploaded_size = 0
+    upload_complete = False
+    try:
+        with temp_file_path.open("wb") as buffer:
+            while chunk := await file.read(64 * 1024):
+                uploaded_size += len(chunk)
+                if uploaded_size > max_upload_size:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                        detail=(
+                            "File exceeds the maximum upload size of "
+                            f"{max_upload_size} bytes."
+                        ),
+                    )
+                buffer.write(chunk)
+        upload_complete = True
+    finally:
+        if not upload_complete and temp_file_path.exists():
+            temp_file_path.unlink()
 
     job = job_store.create_job(job_id=job_id, filename=filename)
 

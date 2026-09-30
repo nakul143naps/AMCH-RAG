@@ -81,10 +81,9 @@ sudo docker compose up -d --build
 PUBLIC_IP=$(curl -s https://checkip.amazonaws.com || curl -s https://ifconfig.me || echo "your-instance-ip")
 
 echo "=========================================================="
-echo " AMCH-RAG is now LIVE on AWS Free Tier!"
+echo " AMCH-RAG is now running on AWS!"
 echo "=========================================================="
 echo " Web Assistant:    http://${PUBLIC_IP}"
-echo " Admin Cockpit:    http://${PUBLIC_IP}/admin"
 echo " FastAPI Docs:     http://${PUBLIC_IP}/docs"
-echo " Qdrant DB:        http://${PUBLIC_IP}:6333/dashboard"
+echo " Qdrant dashboard is private to the EC2 host (127.0.0.1:6333)."
 echo "=========================================================="

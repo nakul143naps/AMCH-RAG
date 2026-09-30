@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     ENVIRONMENT: Literal["development", "production", "test"] = "development"
     LOG_LEVEL: str = "INFO"
     DEBUG: bool = False
+    MAX_UPLOAD_SIZE_BYTES: int = Field(
+        default=20 * 1024 * 1024,
+        gt=0,
+        description="Maximum file upload size in bytes",
+    )
 
     # Primary Provider: Google Gemini (Gemini AI Pro umbrella)
     GEMINI_API_KEY: str = Field(

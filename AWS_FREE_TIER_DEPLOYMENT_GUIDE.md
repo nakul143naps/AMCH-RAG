@@ -1,23 +1,24 @@
-# AMCH-RAG: AWS Free Tier Deployment Guide
+# AMCH-RAG: AWS EC2 Demo Deployment Guide
 
-This guide walks you through deploying **AMCH-RAG (Agentic Multi-Modal Corrective Hybrid RAG)** on an **AWS EC2 Free Tier** instance at zero cost.
+This guide describes the portfolio-demo deployment of **AMCH-RAG (Agentic Multi-Modal Corrective Hybrid RAG)** on AWS EC2. AWS pricing and free-tier eligibility vary by account, region, and date; this deployment is not guaranteed to be free.
+
+> **Public demo warning:** the application does not provide complete user authentication or multi-tenant authorization. Anyone who can reach the public app can access its API surface, including document upload and listing. Do not upload resumes, secrets, customer files, or other private documents. Add HTTPS and an authentication layer before accepting private or untrusted-user data.
 
 ---
 
-## Architecture on AWS Free Tier
+## Demo architecture on AWS EC2
 
 * **Instance Type**: `t2.micro` (or `t3.micro` in supported regions)
 * **OS**: Ubuntu 24.04 LTS (x86_64)
 * **RAM**: 1 GB Physical + 2 GB Swap (configured automatically by setup script)
-* **Storage**: 30 GB gp3 (Free Tier eligible)
+* **Storage**: Choose the EBS size for your use case and confirm current AWS pricing.
 * **Services Hosted**:
-  * **Unified Web App & API** (Port `80` & `8000`): Serves both the modern React Chat Assistant and the FastAPI RAG backend with zero Node.js overhead.
-  * **Native Qdrant Vector Store** (Port `6333`): Lightweight embedded vector database storing dense (bge-small) and sparse (BM25) embeddings.
-  * **Admin Cockpit**: Accessible at `/admin` for memory, cache, and guardrail controls.
+  * **Unified Web App & API** (Port `80`): Serves the React chat application and FastAPI endpoints from one host.
+  * **Qdrant Vector Store**: Stores dense and sparse document vectors; its host port is bound to loopback and should not be made public.
 
 ---
 
-## Step 1: Launch Your AWS EC2 Free Tier Instance
+## Step 1: Launch an AWS EC2 Instance
 
 1. Log into your [AWS Management Console](https://console.aws.amazon.com/).
 2. Navigate to **EC2** &rarr; Click **Launch Instance**.
@@ -27,15 +28,14 @@ This guide walks you through deploying **AMCH-RAG (Agentic Multi-Modal Correctiv
    * **Instance Type**: `t2.micro` (1 vCPU, 1 GiB Memory) or `t3.micro`
    * **Key Pair**: Select your existing key pair or click **Create new key pair** (`amch-key.pem`).
 4. **Network Settings (Security Group)**:
-   * Click **Edit** and ensure the following **Inbound Rules** are added:
+   * Click **Edit** and allow only the ports required for the demo:
      | Type | Port | Source | Purpose |
      | :--- | :--- | :--- | :--- |
-     | **SSH** | `22` | `My IP` (or `0.0.0.0/0`) | Secure terminal access |
-     | **HTTP** | `80` | `0.0.0.0/0` | Web Assistant (React) |
-     | **Custom TCP** | `8000` | `0.0.0.0/0` | FastAPI Backend & Docs |
-     | **Custom TCP** | `6333` | `My IP` | Qdrant Dashboard (Secure) |
+     | **SSH** | `22` | Your current public IP (`/32`) | Restricted administration |
+     | **HTTP** | `80` | `0.0.0.0/0` | Public portfolio demo |
+   * Do **not** add public inbound rules for `8000`, `6333`, or `6334`. Port 8000 is not needed for the website; Qdrant should remain private.
 5. **Configure Storage**:
-   * Change storage from 8 GB to **30 GB gp3** (Free Tier allows up to 30 GB EBS).
+   * Choose an EBS volume size suitable for your data and confirm the current AWS price before launching.
 6. Click **Launch Instance**.
 
 ---
@@ -54,8 +54,8 @@ ssh -i "amch-key.pem" ubuntu@<YOUR_EC2_PUBLIC_IP>
 
 On the EC2 instance, clone your repository:
 ```bash
-git clone https://github.com/<YOUR_GITHUB_USERNAME>/<YOUR_REPO_NAME>.git
-cd <YOUR_REPO_NAME>
+git clone https://github.com/nakul143naps/AMCH-RAG.git
+cd AMCH-RAG
 ```
 
 ---
@@ -84,7 +84,7 @@ chmod +x scripts/setup_aws_free_tier.sh
 ```
 
 ### What this script does automatically:
-1. Allocates a **2 GB Swap file** so the 1 GB EC2 instance never encounters Out-Of-Memory issues.
+1. Allocates a **2 GB swap file** to reduce memory pressure on a small instance. Swap does not guarantee that the instance cannot run out of memory.
 2. Installs **Docker** and the **Docker Compose plugin**.
 3. Builds the production multi-stage Docker container (compiling the React frontend into static assets and packaging FastAPI).
 4. Starts Qdrant and the AMCH-RAG service with automatic restart policies.
@@ -95,10 +95,11 @@ chmod +x scripts/setup_aws_free_tier.sh
 
 Once completed, open your browser and navigate to:
 
-* **Public Web Assistant**: `http://<YOUR_EC2_PUBLIC_IP>` (or `http://<YOUR_EC2_PUBLIC_IP>:8000`)
-* **Admin Control Center**: `http://<YOUR_EC2_PUBLIC_IP>/admin`
-* **FastAPI Interactive Docs**: `http://<YOUR_EC2_PUBLIC_IP>:8000/docs`
-* **Qdrant DB Dashboard**: `http://<YOUR_EC2_PUBLIC_IP>:6333/dashboard`
+* **Public Web Assistant**: `http://<YOUR_EC2_PUBLIC_IP>`
+* **FastAPI Interactive Docs**: `http://<YOUR_EC2_PUBLIC_IP>/docs` (public API surface; do not expose sensitive operations)
+* **Qdrant dashboard**: available from the EC2 host at `http://127.0.0.1:6333/dashboard`; keep it private.
+
+The Compose configuration is for a portfolio demo, not a complete public-service security boundary. The app does not currently enforce full authentication, per-user document access, TLS termination, or durable upload-job processing. Restrict SSH, keep Qdrant private, avoid sensitive uploads, and remove unused AWS resources to avoid ongoing charges.
 
 ---
 
