@@ -106,6 +106,31 @@ async def test_rewrite_node_increments_counter_and_rewrites():
     assert mock_gateway.generate.called
 
 
+@pytest.mark.asyncio
+async def test_rerank_node_preserves_explicit_query_term_match():
+    """Keep a hybrid result containing a queried section when cross-encoder omits it."""
+    reranker = AsyncMock()
+    top_chunk = _make_dummy_chunk("top", "General resume summary.")
+    certification_chunk = _make_dummy_chunk(
+        "certifications",
+        "Cer tifica tions\nCPBI Certificate: Banking, Finance and Insurance\n"
+        "Getting Started with Artificial Intelligence - IBM SkillsBuild",
+        source="Vaishnavi_Ningampet_Resume.pdf",
+    )
+    reranker.async_rerank.return_value = [top_chunk]
+    state = create_initial_state(
+        query="what are the certifications present in Vaishnavi_Ningampet_Resume.pdf"
+    )
+    state["retrieved_docs"] = [top_chunk, certification_chunk]
+
+    result = await RerankNode(reranker=reranker)(state)
+
+    assert [chunk.chunk_id for chunk in result["retrieved_docs"]] == [
+        "top",
+        "certifications",
+    ]
+
+
 # -------------------------------------------------------------------------
 # 3. Web Search Node Unit Tests
 # -------------------------------------------------------------------------
@@ -165,6 +190,13 @@ def test_crag_decision_routing():
     state_exhausted["retrieved_docs"] = []
     state_exhausted["correction_attempts"] = 2
     assert crag_decision(state_exhausted) == "web_search"
+
+    # Explicit references to a resume or filename must not fall back to unrelated web results.
+    state_resume = create_initial_state(
+        query="what certifications are there in Vaishnavi_Ningampet_Resume.pdf"
+    )
+    state_resume["correction_attempts"] = 2
+    assert crag_decision(state_resume) == "generate"
 
 
 # -------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 """LangGraph Agentic Orchestration Graph definition with CRAG, Self-RAG Groundedness, and Guardrails."""
 
 import logging
+import re
 from typing import Any, Literal
 
 from langgraph.graph import END, START, StateGraph
@@ -100,7 +101,12 @@ def crag_decision(state: AgentState) -> Literal["generate", "rewrite", "web_sear
         "in this document",
         "in this file",
     ]
-    if any(phrase in query for phrase in explicit_doc_phrases):
+    names_document = (
+        any(phrase in query for phrase in explicit_doc_phrases)
+        or bool(re.search(r"\b[\w-]+\.(?:pdf|docx|pptx|csv|txt|md|html?)\b", query))
+        or bool(re.search(r"\b(resume|curriculum vitae)\b", query))
+    )
+    if names_document:
         logger.info(
             "CRAG decision: query explicitly targets an internal document -> routing to generate (avoiding web search)"
         )

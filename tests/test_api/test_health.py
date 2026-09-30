@@ -3,7 +3,7 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.main import app
+from app.main import DIST_DIR, app
 
 
 @pytest.mark.asyncio
@@ -23,10 +23,14 @@ async def test_health_check_endpoint():
 
 @pytest.mark.asyncio
 async def test_root_endpoint():
-    """Verify that / returns 200 with project name."""
+    """Verify that / serves the SPA when built, otherwise the API status response."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get("/")
         assert response.status_code == 200
-        data = response.json()
-        assert data["project"] == "AMCH-RAG"
+        if DIST_DIR.exists():
+            assert response.headers["content-type"].startswith("text/html")
+            assert '<div id="root"></div>' in response.text
+        else:
+            data = response.json()
+            assert data["project"] == "AMCH-RAG"
